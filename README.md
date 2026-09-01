@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/favicon.svg" alt="GhostCompute Logo" width="200" height="200" />
+  <img src="public/logo.svg" alt="GhostCompute Logo" width="180" height="180" />
   
   # GhostCompute
   
