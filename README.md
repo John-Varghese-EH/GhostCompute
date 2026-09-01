@@ -32,7 +32,10 @@ Whether you are configuring a workstation to act as a **Host** or connecting a r
   Securely reverse-proxy traffic from a local client device to a robust Host running Ollama. AI workloads can be executed on powerful remote hardware while feeling entirely local to the user.
 
 - **Enterprise-Grade User Interface**
-  A sophisticated, dark-themed user interface built with React, Vite, and custom CSS variables. GhostCompute avoids bloated UI frameworks in favor of a lean, highly responsive, and premium aesthetic.
+  A sophisticated, dark-themed user interface built with React, Vite, and custom CSS variables. GhostCompute avoids bloated UI frameworks in favor of a lean, highly responsive, and premium aesthetic.  
+
+
+  <img src="/docs/screenshots/GhostCompute-01.png" alt="GhostCompute Onboarding" />
 
 ---
 
