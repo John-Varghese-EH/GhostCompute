@@ -170,6 +170,11 @@ impl ClientConnection {
                                                         if let Some(sender) = r.get("pairing") {
                                                             let _ = sender.send(parsed.clone()).await;
                                                         }
+                                                    } else if action == "sys_stats_response" {
+                                                        let r = routers.lock().await;
+                                                        if let Some(sender) = r.get("sys_stats") {
+                                                            let _ = sender.send(parsed.clone()).await;
+                                                        }
                                                     }
                                                 }
                                             }
@@ -364,5 +369,32 @@ impl ClientConnection {
             }
         }
         Ok(vec![])
+    }
+
+    pub async fn get_host_sys_stats(&mut self) -> Result<serde_json::Value, ClientError> {
+        let sender = self.sender.as_ref().ok_or(ClientError::NotConnected)?;
+        
+        let (tx, mut rx) = mpsc::channel(1);
+        self.routers.lock().await.insert("sys_stats".to_string(), tx);
+        
+        let payload = serde_json::to_vec(&serde_json::json!({ "action": "get_sys_stats" }))
+            .map_err(|e| ClientError::Transport(e.to_string()))?;
+            
+        sender.send(payload).await.map_err(|e| ClientError::Transport(e.to_string()))?;
+            
+        let res = match tokio::time::timeout(Duration::from_secs(5), rx.recv()).await {
+            Ok(Some(msg)) => {
+                if let Some(data) = msg.get("data") {
+                    Ok(data.clone())
+                } else {
+                    Err(ClientError::Transport("Invalid sys_stats format".into()))
+                }
+            },
+            Ok(None) => Err(ClientError::Transport("connection closed".into())),
+            Err(_) => Err(ClientError::Transport("timeout".into())),
+        };
+        
+        self.routers.lock().await.remove("sys_stats");
+        res
     }
 }

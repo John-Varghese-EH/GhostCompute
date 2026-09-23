@@ -12,6 +12,7 @@ mod peer_store;
 mod server;
 mod settings;
 mod transport;
+pub mod sys_monitor;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -489,6 +490,17 @@ async fn get_remote_models(
 }
 
 #[tauri::command]
+async fn get_host_sys_stats(
+    state: tauri::State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let mut client = state.client.lock().await;
+    client
+        .get_host_sys_stats()
+        .await
+        .map_err(|e| format!("{}", e))
+}
+
+#[tauri::command]
 async fn get_connection_status(
     state: tauri::State<'_, AppState>,
 ) -> Result<ConnectionStatus, String> {
@@ -750,6 +762,7 @@ pub fn run() {
             start_api_proxy,
             stop_api_proxy,
             get_api_proxy_status,
+            get_host_sys_stats,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run application");

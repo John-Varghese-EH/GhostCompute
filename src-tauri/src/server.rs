@@ -243,6 +243,16 @@ impl HostServer {
                                                                             let _ = tx_out.send(b"{\"error\":\"Not paired\",\"done\":true}".to_vec()).await;
                                                                             break;
                                                                         }
+                                                                        if action == "get_sys_stats" {
+                                                                            let stats = crate::sys_monitor::get_system_stats();
+                                                                            if let Ok(json) = serde_json::to_vec(&serde_json::json!({
+                                                                                "action": "sys_stats_response",
+                                                                                "data": stats
+                                                                            })) {
+                                                                                let _ = tx_out.send(json).await;
+                                                                            }
+                                                                            continue;
+                                                                        }
 
                                                                         if action == "http_proxy" {
                                                                             if let Ok(proxy_req) = serde_json::from_value::<HttpProxyRequest>(parsed) {

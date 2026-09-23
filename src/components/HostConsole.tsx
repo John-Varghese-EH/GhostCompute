@@ -60,7 +60,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
     <div className="flex" style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
       
       {/* Sidebar */}
-      <div className="flex flex-col" style={{ width: '250px', background: 'var(--gc-surface)', borderRight: '1px solid var(--gc-border)' }}>
+      <div className="flex flex-col glass-panel" style={{ width: '250px', borderRight: 'none', borderRadius: 0, zIndex: 10 }}>
         <div style={{ padding: 'var(--gc-space-lg)', borderBottom: '1px solid var(--gc-border)' }}>
           <div className="flex items-center gap-sm">
             <Logo size={28} className="text-accent" />
@@ -161,7 +161,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
             ) : (
               <div className="flex flex-col gap-sm">
                 {sessions.map(session => (
-                  <div key={session.peer_id} className="card flex justify-between items-center">
+                  <div key={session.peer_id} className="card glass-panel flex justify-between items-center">
                     <div>
                       <div style={{ fontSize: '14px', fontWeight: 500 }}>{session.device_name}</div>
                       <div className="text-muted text-mono" style={{ fontSize: '12px' }}>
@@ -194,7 +194,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
             </div>
             
             {pairingLink && (
-              <div className="card flex flex-col gap-sm" style={{ background: 'var(--gc-accent-muted)' }}>
+              <div className="card glass-panel flex flex-col gap-sm" style={{ background: 'var(--gc-accent-muted)', borderColor: 'var(--gc-accent)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 500 }}>Share this secure link with the client:</div>
                 <div className="flex gap-sm">
                   <input readOnly value={pairingLink} className="input" style={{ flex: 1, fontFamily: 'monospace' }} />
@@ -213,7 +213,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
             ) : (
               <div className="flex flex-col gap-sm">
                 {devices.map(device => (
-                  <div key={device.peer_id} className="card flex justify-between items-center">
+                  <div key={device.peer_id} className="card glass-panel flex justify-between items-center">
                     <div>
                       <div style={{ fontSize: '14px', fontWeight: 500 }}>{device.device_name}</div>
                       <div className="text-muted text-mono" style={{ fontSize: '12px' }}>
@@ -249,7 +249,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
               </div>
             </div>
 
-            <div className="card">
+            <div className="card glass-panel">
               <h3 style={{ fontSize: '16px', fontWeight: 500, marginBottom: 'var(--gc-space-md)' }}>Pull Model</h3>
               <div className="flex gap-sm">
                 <input type="text" id="pull-model-input" className="input" placeholder="e.g. llama3" />
@@ -326,13 +326,24 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
               </label>
             </div>
             
-            <div className="card">
+            <div className="card glass-panel">
               <h3 style={{ fontSize: '16px', fontWeight: 500, marginBottom: 'var(--gc-space-xs)' }}>
                 Cloudflare Tunnel Integration
               </h3>
-              <p className="text-muted" style={{ marginBottom: 'var(--gc-space-lg)', fontSize: '14px' }}>
-                If you want to expose your host over the internet when local network mDNS discovery is not available, provide a Cloudflare Tunnel token. The server will automatically spawn <code className="text-mono" style={{ background: 'var(--gc-bg)', padding: '2px 6px', borderRadius: '4px' }}>cloudflared</code> when hosting starts.
+              <p className="text-muted" style={{ marginBottom: 'var(--gc-space-sm)', fontSize: '14px' }}>
+                If you want to expose your host over the internet when local network mDNS discovery is not available, provide a Cloudflare Tunnel token. The server will automatically spawn <code className="text-mono" style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>cloudflared</code> when hosting starts.
               </p>
+              
+              <div className="text-muted" style={{ fontSize: '13px', marginBottom: 'var(--gc-space-lg)', background: 'rgba(255,255,255,0.05)', padding: 'var(--gc-space-md)', borderRadius: 'var(--gc-radius-md)' }}>
+                <strong>How to setup Cloudflare Tunnel:</strong>
+                <ol style={{ marginLeft: '16px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <li>Go to <a href="https://one.dash.cloudflare.com" target="_blank" style={{ color: 'var(--gc-accent)' }}>Cloudflare Zero Trust Dashboard</a></li>
+                  <li>Navigate to <strong>Networks &gt; Tunnels</strong> and click <strong>Create a tunnel</strong></li>
+                  <li>Choose <strong>Cloudflared</strong> and name your tunnel.</li>
+                  <li>Copy the token provided in the installation script (the long string after <code style={{background:'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: '4px'}}>--token</code>)</li>
+                  <li>In the <strong>Public Hostname</strong> tab, add a hostname (e.g. <code>ghost.yourdomain.com</code>) and set the service to <code>http://127.0.0.1:[Host Port]</code></li>
+                </ol>
+              </div>
               
               <div className="flex flex-col gap-sm" style={{ maxWidth: '400px' }}>
                 <label style={{ fontSize: '14px', fontWeight: 500 }}>Tunnel Token</label>
@@ -346,12 +357,12 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                     style={{ flex: 1 }}
                   />
                 </div>
-                <label style={{ fontSize: '14px', fontWeight: 500, marginTop: 'var(--gc-space-sm)' }}>Tunnel URL</label>
+                <label style={{ fontSize: '14px', fontWeight: 500, marginTop: 'var(--gc-space-sm)' }}>Public Hostname URL</label>
                 <div className="flex gap-sm">
                   <input 
                     type="text" 
                     className="input" 
-                    placeholder="https://my-tunnel.trycloudflare.com" 
+                    placeholder="https://ghost.yourdomain.com" 
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
                     style={{ flex: 1 }}
@@ -367,12 +378,12 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                     groq_api_key: groqInput
                   })}
                 >
-                  Save Settings
+                  Save Tunnel Configuration
                 </Button>
               </div>
             </div>
 
-            <div className="card" style={{ marginTop: 'var(--gc-space-md)' }}>
+            <div className="card glass-panel" style={{ marginTop: 'var(--gc-space-md)' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 500, marginBottom: 'var(--gc-space-xs)' }}>
                 Cloud AI Gateways
               </h3>

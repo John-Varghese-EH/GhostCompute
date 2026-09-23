@@ -58,7 +58,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
           {step === 1 && (
             <div className="flex gap-md">
               <div 
-                className="card flex flex-col items-center gap-sm" 
+                className="card glass-panel flex flex-col items-center gap-sm" 
                 style={{ 
                   flex: 1, 
                   cursor: 'pointer', 
@@ -73,7 +73,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
               </div>
 
               <div 
-                className="card flex flex-col items-center gap-sm" 
+                className="card glass-panel flex flex-col items-center gap-sm" 
                 style={{ 
                   flex: 1, 
                   cursor: 'pointer', 
@@ -94,7 +94,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
           )}
 
           {step === 3 && role === 'host' && (
-            <div className="card flex flex-col gap-md">
+            <div className="card glass-panel flex flex-col gap-md">
               <div className="flex justify-between items-center">
                 <span style={{ fontWeight: 500 }}>Ollama Server</span>
                 <div className="flex items-center gap-sm">

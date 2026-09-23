@@ -7,6 +7,7 @@ import { Button } from './common/Button';
 import { Badge } from './common/Badge';
 import { StatusDot } from './common/StatusDot';
 import { IntegrationsPanel } from './IntegrationsPanel';
+import { ResourceMonitor } from './ResourceMonitor';
 
 interface ClientTerminalProps {
   onResetRole: () => void;
@@ -18,7 +19,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
   const [inputVal, setInputVal] = useState('');
   const [remoteModels, setRemoteModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'chat' | 'integrations'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'integrations' | 'telemetry'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isConnected = typeof status === 'object' && status !== null && 'Connected' in status;
@@ -169,6 +170,22 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
             >
               Integrations
             </button>
+            <button
+              onClick={() => setActiveTab('telemetry')}
+              style={{
+                padding: '4px 12px',
+                border: 'none',
+                background: activeTab === 'telemetry' ? 'var(--gc-surface)' : 'transparent',
+                color: activeTab === 'telemetry' ? 'var(--gc-text)' : 'var(--gc-text-muted)',
+                borderRadius: 'var(--gc-radius-sm)',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                boxShadow: activeTab === 'telemetry' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+              }}
+            >
+              Telemetry
+            </button>
           </div>
           
           <select className="input" style={{ width: '150px', padding: '4px 8px', height: 'auto' }} value={selectedModel} onChange={e => setSelectedModel(e.target.value)} disabled={!isConnected || remoteModels.length === 0}>
@@ -250,9 +267,15 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
             </div>
           </div>
         </>
-      ) : (
+      ) : activeTab === 'integrations' ? (
         <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--gc-space-xl)' }}>
           <IntegrationsPanel />
+        </div>
+      ) : (
+        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--gc-space-xl)', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: '100%', maxWidth: '600px' }}>
+            <ResourceMonitor />
+          </div>
         </div>
       )}
       
