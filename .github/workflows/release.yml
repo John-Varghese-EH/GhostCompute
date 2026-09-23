@@ -55,12 +55,12 @@ jobs:
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           sudo dpkg --add-architecture arm64
-          sudo sed -i -E 's/^deb (http|https)/deb [arch=amd64,i386] \1/' /etc/apt/sources.list
-          sudo sed -i -E 's/^deb-src (http|https)/deb-src [arch=amd64,i386] \1/' /etc/apt/sources.list
+          sudo sed -i -E 's/^deb ([^\[])/deb [arch=amd64,i386] \1/' /etc/apt/sources.list
+          sudo sed -i -E 's/^deb-src ([^\[])/deb-src [arch=amd64,i386] \1/' /etc/apt/sources.list
           for f in /etc/apt/sources.list.d/*.list; do
             if [ -f "$f" ]; then
-              sudo sed -i -E 's/^deb (http|https)/deb [arch=amd64,i386] \1/' "$f" || true
-              sudo sed -i -E 's/^deb-src (http|https)/deb-src [arch=amd64,i386] \1/' "$f" || true
+              sudo sed -i -E 's/^deb ([^\[])/deb [arch=amd64,i386] \1/' "$f" || true
+              sudo sed -i -E 's/^deb-src ([^\[])/deb-src [arch=amd64,i386] \1/' "$f" || true
             fi
           done
           cat << 'INNER_EOF' | sudo tee /etc/apt/sources.list.d/arm-cross-compile-sources.list
