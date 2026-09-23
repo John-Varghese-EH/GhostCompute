@@ -45,9 +45,12 @@ export type ConnectionStatus =
 
 export interface AppSettings {
   cloudflare_token: string | null;
+  cloudflare_tunnel_url: string | null;
+  gemini_api_key: string | null;
+  groq_api_key: string | null;
   host_port: number;
   auto_start_hosting: boolean;
-  default_model: string;
+  default_model: string | null;
   max_concurrent_requests: number;
   max_payload_bytes: number;
   max_context_tokens: number;

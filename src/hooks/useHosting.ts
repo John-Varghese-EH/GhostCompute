@@ -5,7 +5,8 @@ import {
   stopHosting as invokeStopHosting,
   killSession as invokeKillSession,
   killAllSessions as invokeKillAllSessions,
-  SessionInfo
+  SessionInfo,
+  safeListen
 } from '../lib/tauri';
 
 export function useHosting() {
@@ -13,9 +14,9 @@ export function useHosting() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
 
   useEffect(() => {
-    let intervalId: number;
+    let unlisten: (() => void) | undefined;
 
-    const checkSessions = async () => {
+    const fetchSessions = async () => {
       try {
         const currentSessions = await getActiveSessions();
         setSessions(currentSessions);
@@ -25,14 +26,18 @@ export function useHosting() {
     };
 
     if (isHosting) {
-      checkSessions();
-      intervalId = window.setInterval(checkSessions, 3000);
+      fetchSessions();
+      safeListen('sessions-changed', () => {
+        fetchSessions();
+      }).then(u => {
+        unlisten = u;
+      });
     } else {
       setSessions([]);
     }
 
     return () => {
-      if (intervalId) window.clearInterval(intervalId);
+      if (unlisten) unlisten();
     };
   }, [isHosting]);
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useHosting } from '../hooks/useHosting';
 import { useOllama } from '../hooks/useOllama';
 import { useSettings } from '../hooks/useSettings';
-import { getPairedDevices, revokeDevice, TrustedPeer } from '../lib/tauri';
+import { getPairedDevices, revokeDevice, TrustedPeer, generatePairingLink } from '../lib/tauri';
 import { Button } from './common/Button';
 import { Badge } from './common/Badge';
 import { StatusDot } from './common/StatusDot';
@@ -20,11 +20,24 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
   const { status: ollamaStatus, models, pullModel, swapModel } = useOllama();
   const { settings, save } = useSettings();
   const [tokenInput, setTokenInput] = useState('');
+  const [urlInput, setUrlInput] = useState('');
+  const [geminiInput, setGeminiInput] = useState('');
+  const [groqInput, setGroqInput] = useState('');
   const [devices, setDevices] = useState<TrustedPeer[]>([]);
+  const [pairingLink, setPairingLink] = useState('');
 
   useEffect(() => {
     if (settings.cloudflare_token) {
       setTokenInput(settings.cloudflare_token);
+    }
+    if (settings.cloudflare_tunnel_url) {
+      setUrlInput(settings.cloudflare_tunnel_url);
+    }
+    if (settings.gemini_api_key) {
+      setGeminiInput(settings.gemini_api_key);
+    }
+    if (settings.groq_api_key) {
+      setGroqInput(settings.groq_api_key);
     }
   }, [settings]);
 
@@ -168,7 +181,29 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
 
         {activeNav === 'devices' && (
           <div className="flex flex-col gap-md">
-            <h2 style={{ fontSize: '20px', fontWeight: 500 }}>Paired Devices</h2>
+            <div className="flex justify-between items-center">
+              <h2 style={{ fontSize: '20px', fontWeight: 500 }}>Paired Devices</h2>
+              <Button onClick={async () => {
+                try {
+                  const link = await generatePairingLink();
+                  setPairingLink(link);
+                } catch(e) {
+                  console.error(e);
+                }
+              }}>Generate Pairing Link</Button>
+            </div>
+            
+            {pairingLink && (
+              <div className="card flex flex-col gap-sm" style={{ background: 'var(--gc-accent-muted)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 500 }}>Share this secure link with the client:</div>
+                <div className="flex gap-sm">
+                  <input readOnly value={pairingLink} className="input" style={{ flex: 1, fontFamily: 'monospace' }} />
+                  <Button onClick={() => navigator.clipboard.writeText(pairingLink)}>Copy</Button>
+                </div>
+                <div className="text-muted" style={{ fontSize: '12px' }}>Link expires in 10 minutes.</div>
+              </div>
+            )}
+
             {devices.length === 0 ? (
               <EmptyState 
                 icon="📱" 
@@ -310,10 +345,76 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                     onChange={(e) => setTokenInput(e.target.value)}
                     style={{ flex: 1 }}
                   />
-                  <Button onClick={() => save({ ...settings, cloudflare_token: tokenInput })}>
-                    Save Token
-                  </Button>
                 </div>
+                <label style={{ fontSize: '14px', fontWeight: 500, marginTop: 'var(--gc-space-sm)' }}>Tunnel URL</label>
+                <div className="flex gap-sm">
+                  <input 
+                    type="text" 
+                    className="input" 
+                    placeholder="https://my-tunnel.trycloudflare.com" 
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+                <Button 
+                  style={{ marginTop: 'var(--gc-space-sm)' }}
+                  onClick={() => save({ 
+                    ...settings, 
+                    cloudflare_token: tokenInput, 
+                    cloudflare_tunnel_url: urlInput,
+                    gemini_api_key: geminiInput,
+                    groq_api_key: groqInput
+                  })}
+                >
+                  Save Settings
+                </Button>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 'var(--gc-space-md)' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 500, marginBottom: 'var(--gc-space-xs)' }}>
+                Cloud AI Gateways
+              </h3>
+              <p className="text-muted" style={{ marginBottom: 'var(--gc-space-lg)', fontSize: '14px' }}>
+                GhostCompute acts as a unified AI gateway. You can provide your API keys for external models (like Gemini and Groq) here, allowing any connected client device to securely utilize them through the exact same GhostCompute proxy endpoint.
+              </p>
+              
+              <div className="flex flex-col gap-sm" style={{ maxWidth: '400px' }}>
+                <label style={{ fontSize: '14px', fontWeight: 500 }}>Google Gemini API Key</label>
+                <div className="flex gap-sm">
+                  <input 
+                    type="password" 
+                    className="input" 
+                    placeholder="AIzaSy..." 
+                    value={geminiInput}
+                    onChange={(e) => setGeminiInput(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+                <label style={{ fontSize: '14px', fontWeight: 500, marginTop: 'var(--gc-space-sm)' }}>Groq API Key</label>
+                <div className="flex gap-sm">
+                  <input 
+                    type="password" 
+                    className="input" 
+                    placeholder="gsk_..." 
+                    value={groqInput}
+                    onChange={(e) => setGroqInput(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+                <Button 
+                  style={{ marginTop: 'var(--gc-space-sm)' }}
+                  onClick={() => save({ 
+                    ...settings, 
+                    cloudflare_token: tokenInput, 
+                    cloudflare_tunnel_url: urlInput,
+                    gemini_api_key: geminiInput,
+                    groq_api_key: groqInput
+                  })}
+                >
+                  Save API Keys
+                </Button>
               </div>
             </div>
           </div>

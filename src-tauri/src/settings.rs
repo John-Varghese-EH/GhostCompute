@@ -30,6 +30,9 @@ fn default_api_proxy_port() -> u16 {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AppSettings {
     pub cloudflare_token: Option<String>,
+    pub cloudflare_tunnel_url: Option<String>,
+    pub gemini_api_key: Option<String>,
+    pub groq_api_key: Option<String>,
     #[serde(default = "default_host_port")]
     pub host_port: u16,
     #[serde(default)]
@@ -58,6 +61,9 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             cloudflare_token: None,
+            cloudflare_tunnel_url: None,
+            gemini_api_key: None,
+            groq_api_key: None,
             host_port: default_host_port(),
             auto_start_hosting: false,
             default_model: None,

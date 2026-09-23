@@ -56,7 +56,7 @@ impl PeerStore {
     ) -> Result<(), PeerStoreError> {
         let now = Utc::now().to_rfc3339();
         self.conn.execute(
-            "INSERT INTO peers (peer_id, device_name, noise_public_key, paired_at, revoked)
+            "INSERT OR REPLACE INTO peers (peer_id, device_name, noise_public_key, paired_at, revoked)
              VALUES (?1, ?2, ?3, ?4, 0)",
             params![peer_id, device_name, noise_pub_key, now],
         )?;

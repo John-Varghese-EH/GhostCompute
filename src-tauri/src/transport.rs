@@ -5,11 +5,8 @@ use thiserror::Error;
 use tokio_tungstenite::tungstenite::Message;
 
 pub const NOISE_PATTERN: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
-#[allow(dead_code)]
-pub const MAX_MSG_SIZE: usize = 65519;
 
 #[derive(Debug, Error)]
-#[allow(dead_code)]
 pub enum TransportError {
     #[error("Noise error: {0}")]
     Noise(#[from] snow::Error),
@@ -19,8 +16,6 @@ pub enum TransportError {
     WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
     #[error("Handshake failed: {0}")]
     HandshakeFailed(String),
-    #[error("Message too large")]
-    MessageTooLarge,
     #[error("Connection closed")]
     ConnectionClosed,
 }

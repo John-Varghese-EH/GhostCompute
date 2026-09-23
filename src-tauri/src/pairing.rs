@@ -75,13 +75,19 @@ pub fn generate_pairing_code() -> PairingCode {
     PairingCode { code, expires_at }
 }
 
-pub fn generate_pairing_link() -> PairingLink {
+pub fn generate_pairing_link(host_url: Option<String>) -> PairingLink {
     let mut rng = rand::thread_rng();
     let mut token_bytes = [0u8; 32];
     rng.fill(&mut token_bytes);
 
     let token = hex::encode(token_bytes);
-    let url = format!("ghostcompute://pair/{}", token);
+    
+    let url = if let Some(base_url) = host_url {
+        format!("{}?token={}", base_url, token)
+    } else {
+        format!("ghostcompute://pair/{}", token)
+    };
+    
     let expires_at = Utc::now() + Duration::minutes(10);
 
     PairingLink {

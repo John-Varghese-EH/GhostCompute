@@ -255,7 +255,10 @@ async fn submit_pairing_code(
 
 #[tauri::command]
 async fn generate_pairing_link(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let link = pairing::generate_pairing_link();
+    let settings = state.settings.lock().await.get();
+    let host_url = settings.cloudflare_tunnel_url;
+    
+    let link = pairing::generate_pairing_link(host_url);
     let url = link.url.clone();
     let mut lock = state.pairing_link.lock().await;
     *lock = Some(link);
@@ -288,13 +291,13 @@ async fn remove_device(state: tauri::State<'_, AppState>, peer_id: String) -> Re
 async fn start_hosting(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
-    cf_token: Option<String>,
 ) -> Result<(), String> {
     let mut server = state.server.lock().await;
     let peer_store = state.peer_store.clone();
     let noise_priv = state.identity.noise_private;
     let settings = state.settings.lock().await.get();
     let gate = Arc::new(crate::admission::AdmissionGate::new(&settings));
+    let cf_token = settings.cloudflare_token.clone();
 
     server
         .start(
@@ -307,6 +310,15 @@ async fn start_hosting(
         )
         .await
         .map_err(|e| format!("{}", e))?;
+
+    let mut mdns_lock = state.mdns.lock().await;
+    if mdns_lock.is_none() {
+        let handle = crate::discovery::MdnsHandle::new().map_err(|e| format!("{}", e))?;
+        *mdns_lock = Some(handle);
+    }
+    if let Some(mdns) = mdns_lock.as_mut() {
+        let _ = mdns.start_advertising(state.identity.peer_id().as_str(), "GhostCompute", crate::discovery::DEFAULT_PORT);
+    }
 
     Ok(())
 }
@@ -376,7 +388,55 @@ async fn connect_to_url(state: tauri::State<'_, AppState>, url: String) -> Resul
     client
         .connect_url(noise_priv, &url)
         .await
-        .map_err(|e| format!("{}", e))
+        .map_err(|e| format!("{}", e))?;
+
+    let mut token = None;
+    if let Ok(parsed) = url::Url::parse(&url) {
+        for (k, v) in parsed.query_pairs() {
+            if k == "token" {
+                token = Some(v.into_owned());
+                break;
+            }
+        }
+    }
+
+    let mut payload_map = serde_json::Map::new();
+    payload_map.insert("action".to_string(), serde_json::json!("pair"));
+    if let Some(t) = token {
+        payload_map.insert("token".to_string(), serde_json::json!(t));
+    }
+    
+    let payload = serde_json::Value::Object(payload_map);
+    
+    let resp_bytes = client
+        .send_request(&serde_json::to_vec(&payload).unwrap())
+        .await
+        .map_err(|e| format!("{}", e))?;
+
+    let resp: serde_json::Value =
+        serde_json::from_slice(&resp_bytes).map_err(|e| format!("{}", e))?;
+        
+    if resp.get("action").and_then(|a| a.as_str()) == Some("pair_ok") {
+        return Ok(());
+    } else if resp.get("action").and_then(|a| a.as_str()) == Some("pair_sas") {
+        if let Some(sas) = resp.get("sas").and_then(|s| s.as_str()) {
+            let mut ps = state.pairing_state.lock().await;
+            *ps = crate::pairing::PairingState::AwaitingConfirmation {
+                sas: sas.to_string(),
+                peer_id: client.last_peer_id().unwrap_or_default(),
+                device_name: "URL Connection".to_string(),
+            };
+            return Ok(());
+        }
+    }
+    
+    if let Some(err) = resp.get("error").and_then(|e| e.as_str()) {
+        let _ = client.disconnect().await;
+        return Err(err.to_string());
+    }
+    
+    let _ = client.disconnect().await;
+    Err("Pairing failed".to_string())
 }
 
 #[tauri::command]
@@ -420,7 +480,7 @@ async fn send_chat_message(
 #[tauri::command]
 async fn get_remote_models(
     state: tauri::State<'_, AppState>,
-) -> Result<Vec<serde_json::Value>, String> {
+) -> Result<Vec<String>, String> {
     let mut client = state.client.lock().await;
     client
         .get_remote_models()
@@ -517,6 +577,7 @@ async fn start_api_proxy(state: tauri::State<'_, AppState>) -> Result<(), String
             settings.api_proxy_port,
             settings.api_proxy_key,
             state.client.clone(),
+            state.settings.clone(),
         )
         .await
 }
@@ -584,9 +645,10 @@ pub fn run() {
                 let client_state = app.state::<AppState>().client.clone();
                 let port = settings_for_proxy.api_proxy_port;
                 let key = settings_for_proxy.api_proxy_key.clone();
+                let settings_state = app.state::<AppState>().settings.clone();
                 tauri::async_runtime::spawn(async move {
                     let mut proxy = proxy_state.lock().await;
-                    if let Err(e) = proxy.start(port, key, client_state).await {
+                    if let Err(e) = proxy.start(port, key, client_state, settings_state).await {
                         log::error!("Failed to auto-start API proxy: {}", e);
                     }
                 });

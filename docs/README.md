@@ -1,29 +1,25 @@
 # GhostCompute Documentation
 
-Welcome to the official documentation for **GhostCompute**! 
+Welcome to the **GhostCompute** documentation. GhostCompute allows you to transform a powerful gaming laptop into a centralized AI inference server (Host) and securely access it from any low-end laptop (Client) over the internet, feeling as if the models were running locally. 
 
-GhostCompute is a powerful, secure, and transparent peer-to-peer (P2P) Layer 7 HTTP tunnel designed to expose local AI models (like Ollama) to remote machines as if they were running locally. Whether you want to leverage a powerful GPU rig from your thin client laptop or share your local AI capabilities securely with a colleague, GhostCompute handles the heavy lifting seamlessly.
+This repository provides an enterprise-grade AI Gateway and P2P tunnel built with Rust and Tauri.
 
 ## Table of Contents
 
-### Getting Started
-- [Installation Guide](getting-started/installation.md)
-- [Quickstart & Pairing](getting-started/quickstart.md)
+- [Setup & Configuration](setup.md)
+  Learn how to install and configure GhostCompute on both the Host and Client laptops.
+- [Architecture](architecture.md)
+  Dive deep into how the Peer-to-Peer (P2P) tunnel and AI Gateway fallback logic work.
+- [API Reference](api_reference.md)
+  Details on the OpenAI-compatible API layer for seamless integration with Cursor, Claude Code, and other AI IDEs.
+- [Troubleshooting](troubleshooting.md)
+  Tips and fixes for common issues such as connection failures and API key errors.
 
-### Architecture
-- [System Overview](architecture/overview.md)
-- [Security & Encryption (Noise Protocol)](architecture/security.md)
+## Key Features
+- **Zero Configuration Networking**: Connect over NATs and firewalls seamlessly.
+- **Cross-Platform**: Executables for Windows, macOS, and Linux built automatically via GitHub Actions.
+- **Cloud Fallback**: Enter Gemini or Groq API keys on the Client, and the Gateway will route traffic to them gracefully when the Host is offline.
+- **OpenAI Compatibility**: Works drop-in with any tool expecting `http://localhost:11434/v1`.
 
-### Use Cases & Integrations
-- [Using with Claude Code](use-cases/claude-code.md)
-- [Connecting Open WebUI](use-cases/open-webui.md)
-- [Programmatic API Access & cURL](use-cases/api-access.md)
-
-### Support
-- [Common Issues](troubleshooting/common-issues.md)
-- [FAQ](troubleshooting/faq.md)
-
----
-
-> **Why GhostCompute?**
-> Rather than relying on generic VPNs or clunky reverse proxies that break streaming protocols, GhostCompute is built specifically for AI model access. It features real-time bidirectional chunk streaming over WebSockets, end-to-end encryption using the Noise protocol, and a beautiful native Tauri interface.
+### Quick Start
+To get started right away, please see the [Setup & Configuration](setup.md) guide.

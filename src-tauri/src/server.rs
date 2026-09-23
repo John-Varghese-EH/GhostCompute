@@ -8,6 +8,7 @@ use tokio::net::TcpListener;
 use tokio::process::Command;
 use tokio::sync::Mutex;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use tauri::Emitter;
 
 use crate::admission::AdmissionGate;
 use crate::peer_store::PeerStore;
@@ -108,6 +109,7 @@ impl HostServer {
                                                     active: true,
                                                 };
                                                 sessions.lock().await.insert(peer_id.clone(), info);
+                                                let _ = app_handle.emit("sessions-changed", ());
 
                                                 let (kill_tx, mut kill_rx) = tokio::sync::oneshot::channel();
                                                 session_kills.lock().await.insert(peer_id.clone(), kill_tx);
@@ -167,7 +169,7 @@ impl HostServer {
                                                                             if let Some(code) = parsed.get("code").and_then(|v| v.as_str()) {
                                                                                 let pcode = app_state.pairing_code.lock().await;
                                                                                 if let Some(ref pc) = *pcode {
-                                                                                    if pc.code == code {
+                                                                                    if pc.code == code && chrono::Utc::now() < pc.expires_at {
                                                                                         code_matched = true;
                                                                                     }
                                                                                 }
@@ -175,7 +177,7 @@ impl HostServer {
                                                                             if let Some(token) = parsed.get("token").and_then(|v| v.as_str()) {
                                                                                 let plink = app_state.pairing_link.lock().await;
                                                                                 if let Some(ref pl) = *plink {
-                                                                                    if pl.token == token {
+                                                                                    if pl.token == token && chrono::Utc::now() < pl.expires_at {
                                                                                         code_matched = true;
                                                                                     }
                                                                                 }
@@ -246,23 +248,25 @@ impl HostServer {
                                                                             if let Ok(proxy_req) = serde_json::from_value::<HttpProxyRequest>(parsed) {
                                                                                 let tx_out_clone = tx_out.clone();
                                                                                 tokio::spawn(async move {
-                                                                                    let local_url = format!("http://127.0.0.1:11434{}", proxy_req.path);
-                                                                                    let client = reqwest::Client::new();
-                                                                                    
-                                                                                    let mut req_builder = client.request(
-                                                                                        reqwest::Method::from_bytes(proxy_req.method.as_bytes()).unwrap_or(reqwest::Method::GET),
-                                                                                        &local_url
-                                                                                    );
-                                                                                    
-                                                                                    for (k, v) in &proxy_req.headers {
+                                                                                    let target_url = format!("http://127.0.0.1:11434{}", proxy_req.path);
+                                                                                
+                                                                                let client = reqwest::Client::new();
+                                                                                let mut req_builder = client.request(
+                                                                                    reqwest::Method::from_bytes(proxy_req.method.as_bytes()).unwrap_or(reqwest::Method::GET),
+                                                                                    &target_url
+                                                                                );
+                                                                                
+                                                                                for (k, v) in &proxy_req.headers {
+                                                                                    if k.to_lowercase() != "host" {
                                                                                         req_builder = req_builder.header(k, v);
                                                                                     }
-                                                                                    
-                                                                                    if let Some(b64) = proxy_req.body_base64 {
-                                                                                        if let Ok(bytes) = BASE64.decode(b64) {
-                                                                                            req_builder = req_builder.body(bytes);
-                                                                                        }
+                                                                                }
+                                                                                
+                                                                                if let Some(ref b64) = proxy_req.body_base64 {
+                                                                                    if let Ok(bytes) = BASE64.decode(b64) {
+                                                                                        req_builder = req_builder.body(bytes);
                                                                                     }
+                                                                                }
                                                                                     
                                                                                     match req_builder.send().await {
                                                                                         Ok(mut res) => {
@@ -341,6 +345,7 @@ impl HostServer {
                                                     }
                                                 }
                                                 sessions.lock().await.remove(&peer_id);
+                                                let _ = app_handle.emit("sessions-changed", ());
                                                 session_kills.lock().await.remove(&peer_id);
                                             }
                                             Err(e) => {

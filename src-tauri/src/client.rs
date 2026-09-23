@@ -236,6 +236,8 @@ impl ClientConnection {
         res
     }
 
+    pub fn last_peer_id(&self) -> Option<String> { self.last_peer_id.clone() }
+
     pub fn status(&self) -> ConnectionStatus {
         self.status.clone()
     }
@@ -326,7 +328,7 @@ impl ClientConnection {
         Ok(())
     }
 
-    pub async fn get_remote_models(&mut self) -> Result<Vec<serde_json::Value>, ClientError> {
+    pub async fn get_remote_models(&mut self) -> Result<Vec<String>, ClientError> {
         let req_id = uuid::Uuid::new_v4().to_string();
         let req = HttpProxyRequest {
             action: "http_proxy".to_string(),
@@ -357,7 +359,8 @@ impl ClientConnection {
         
         if let Ok(parsed) = serde_json::from_slice::<serde_json::Value>(&full_body) {
             if let Some(models) = parsed.get("models").and_then(|m| m.as_array()) {
-                return Ok(models.clone());
+                let names = models.iter().filter_map(|m| m.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect();
+                return Ok(names);
             }
         }
         Ok(vec![])
