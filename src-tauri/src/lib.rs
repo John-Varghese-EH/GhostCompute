@@ -607,6 +607,22 @@ async fn get_api_proxy_status(state: tauri::State<'_, AppState>) -> Result<ApiPr
     Ok(proxy.get_status())
 }
 
+#[tauri::command]
+fn get_local_ip() -> Result<String, String> {
+    use std::net::UdpSocket;
+    if let Ok(socket) = UdpSocket::bind("0.0.0.0:0") {
+        if socket.connect("8.8.8.8:80").is_ok() {
+            if let Ok(local_addr) = socket.local_addr() {
+                let ip = local_addr.ip().to_string();
+                if !ip.is_empty() && ip != "0.0.0.0" {
+                    return Ok(ip);
+                }
+            }
+        }
+    }
+    Ok("127.0.0.1".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -763,6 +779,7 @@ pub fn run() {
             stop_api_proxy,
             get_api_proxy_status,
             get_host_sys_stats,
+            get_local_ip,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run application");

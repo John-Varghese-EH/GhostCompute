@@ -100,16 +100,25 @@ impl ClientConnection {
     ) -> Result<(), ClientError> {
         self.status = ConnectionStatus::Connecting;
 
-        // Ensure url has scheme
-        let mut ws_url = url.to_string();
-        if !ws_url.starts_with("ws://") && !ws_url.starts_with("wss://") {
-            if ws_url.starts_with("http://") {
-                ws_url = ws_url.replace("http://", "ws://");
-            } else if ws_url.starts_with("https://") {
-                ws_url = ws_url.replace("https://", "wss://");
+        // Ensure url has scheme and is sanitized
+        let trimmed = url.trim().trim_end_matches('/');
+        let mut ws_url = trimmed.to_string();
+        if !ws_url.starts_with("ws://") && !ws_url.starts_with("wss://") && !ws_url.starts_with("http://") && !ws_url.starts_with("https://") {
+            let is_local = ws_url.starts_with(|c: char| c.is_ascii_digit()) || ws_url.starts_with("localhost");
+            
+            if is_local && !ws_url.contains(':') {
+                ws_url = format!("{}:8384", ws_url);
+            }
+            
+            if is_local {
+                ws_url = format!("ws://{}", ws_url);
             } else {
                 ws_url = format!("wss://{}", ws_url);
             }
+        } else if let Some(stripped) = ws_url.strip_prefix("http://") {
+            ws_url = format!("ws://{}", stripped);
+        } else if let Some(stripped) = ws_url.strip_prefix("https://") {
+            ws_url = format!("wss://{}", stripped);
         }
 
         let request =

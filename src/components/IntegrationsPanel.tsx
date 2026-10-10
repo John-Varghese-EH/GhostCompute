@@ -1,4 +1,17 @@
 import React, { useState } from 'react';
+import { 
+  LuBot, 
+  LuBrain, 
+  LuZap, 
+  LuRefreshCw, 
+  LuGlobe, 
+  LuWrench, 
+  LuPackage, 
+  LuTerminal, 
+  LuPlugZap, 
+  LuCopy, 
+  LuCheck 
+} from 'react-icons/lu';
 import { useApiProxy } from '../hooks/useApiProxy';
 import { useSettings } from '../hooks/useSettings';
 import { Button } from './common/Button';
@@ -23,7 +36,7 @@ export const IntegrationsPanel: React.FC = () => {
     {
       id: 'claude-code',
       name: 'Claude Code',
-      icon: '🤖',
+      icon: <LuBot size={20} className="text-accent" />,
       description: 'Anthropic CLI assistant',
       config: `ANTHROPIC_BASE_URL=http://localhost:${status.port}/v1`,
       instructions: 'Set this environment variable before running Claude Code CLI'
@@ -31,7 +44,7 @@ export const IntegrationsPanel: React.FC = () => {
     {
       id: 'openai-codex',
       name: 'OpenAI Codex CLI',
-      icon: '🧠',
+      icon: <LuBrain size={20} className="text-accent" />,
       description: 'OpenAI CLI tools',
       config: `OPENAI_BASE_URL=http://localhost:${status.port}/v1`,
       instructions: 'Set this environment variable before running the Codex CLI'
@@ -39,7 +52,7 @@ export const IntegrationsPanel: React.FC = () => {
     {
       id: 'cursor',
       name: 'Cursor',
-      icon: '⚡',
+      icon: <LuZap size={20} className="text-accent" />,
       description: 'AI-powered code editor',
       config: `{ "openai.apiBase": "http://localhost:${status.port}/v1" }`,
       instructions: 'Open Cursor Settings > Models > OpenAI API Base'
@@ -47,7 +60,7 @@ export const IntegrationsPanel: React.FC = () => {
     {
       id: 'continue-dev',
       name: 'Continue.dev',
-      icon: '🔄',
+      icon: <LuRefreshCw size={20} className="text-accent" />,
       description: 'IDE extension',
       config: `{
   "title": "GhostCompute",
@@ -60,7 +73,7 @@ export const IntegrationsPanel: React.FC = () => {
     {
       id: 'open-webui',
       name: 'Open WebUI',
-      icon: '🌐',
+      icon: <LuGlobe size={20} className="text-accent" />,
       description: 'Web frontend for LLMs',
       config: `http://localhost:${status.port}`,
       instructions: 'Go to Settings > Connections > Add OpenAI-compatible endpoint'
@@ -68,7 +81,7 @@ export const IntegrationsPanel: React.FC = () => {
     {
       id: 'aider',
       name: 'Aider',
-      icon: '🛠️',
+      icon: <LuWrench size={20} className="text-accent" />,
       description: 'AI pair programming in your terminal',
       config: `aider --openai-api-base http://localhost:${status.port}/v1`,
       instructions: 'Pass this flag when launching Aider'
@@ -76,7 +89,7 @@ export const IntegrationsPanel: React.FC = () => {
     {
       id: 'lm-studio',
       name: 'LM Studio',
-      icon: '📦',
+      icon: <LuPackage size={20} className="text-accent" />,
       description: 'Desktop LLM app',
       config: `http://localhost:${status.port}/v1`,
       instructions: 'Use this as the server URL in LM Studio client'
@@ -84,7 +97,7 @@ export const IntegrationsPanel: React.FC = () => {
     {
       id: 'curl',
       name: 'cURL / API',
-      icon: '💻',
+      icon: <LuTerminal size={20} className="text-accent" />,
       description: 'Direct REST API calls',
       config: `curl http://localhost:${status.port}/v1/chat/completions \\
   -H "Content-Type: application/json" \\
@@ -142,8 +155,9 @@ ${settings.api_proxy_key ? `  -H "Authorization: Bearer ${settings.api_proxy_key
                   <Button size="sm" variant="ghost" onClick={() => setShowKey(!showKey)}>
                     {showKey ? 'Hide' : 'Reveal'}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => handleCopy(settings.api_proxy_key || '', 'apikey')}>
-                    {copiedId === 'apikey' ? 'Copied!' : 'Copy'}
+                  <Button size="sm" variant="ghost" onClick={() => handleCopy(settings.api_proxy_key || '', 'apikey')} className="flex items-center gap-xs">
+                    {copiedId === 'apikey' ? <LuCheck size={13} className="text-success" /> : <LuCopy size={13} />}
+                    <span>{copiedId === 'apikey' ? 'Copied' : 'Copy'}</span>
                   </Button>
                 </>
               )}
@@ -154,16 +168,16 @@ ${settings.api_proxy_key ? `  -H "Authorization: Bearer ${settings.api_proxy_key
 
       {!status.running ? (
         <EmptyState 
-          icon="🔌" 
-          title="Proxy Stopped" 
-          description="Start the API proxy to see integration details and configurations." 
+          icon={<LuPlugZap size={24} />} 
+          title="API Proxy Offline" 
+          description="Start the OpenAI-compatible API proxy above to expose local endpoints for Cursor, Claude Code, and Continue." 
         />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--gc-space-md)' }}>
           {integrations.map(integration => (
             <div 
               key={integration.id} 
-              className="card flex flex-col"
+              className="card glass-panel flex flex-col"
               style={{ 
                 transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                 cursor: 'default'
@@ -178,9 +192,20 @@ ${settings.api_proxy_key ? `  -H "Authorization: Bearer ${settings.api_proxy_key
               }}
             >
               <div className="flex items-center gap-sm" style={{ marginBottom: 'var(--gc-space-sm)' }}>
-                <span style={{ fontSize: '24px' }}>{integration.icon}</span>
+                <div 
+                  className="flex items-center justify-center"
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: 'var(--gc-radius-md)',
+                    background: 'var(--gc-accent-muted)',
+                    border: '1px solid var(--gc-border)'
+                  }}
+                >
+                  {integration.icon}
+                </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '15px', fontWeight: 500 }}>{integration.name}</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600 }}>{integration.name}</div>
                   <div className="text-muted" style={{ fontSize: '13px' }}>{integration.description}</div>
                 </div>
               </div>
@@ -215,8 +240,10 @@ ${settings.api_proxy_key ? `  -H "Authorization: Bearer ${settings.api_proxy_key
                 <Button 
                   size="sm" 
                   onClick={() => handleCopy(integration.config, integration.id)}
+                  className="flex items-center gap-xs"
                 >
-                  {copiedId === integration.id ? 'Copied!' : 'Copy Config'}
+                  {copiedId === integration.id ? <LuCheck size={13} className="text-success" /> : <LuCopy size={13} />}
+                  <span>{copiedId === integration.id ? 'Copied' : 'Copy Config'}</span>
                 </Button>
               </div>
 

@@ -1,4 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { 
+  LuMessageSquare, 
+  LuBox, 
+  LuActivity, 
+  LuSend, 
+  LuUser, 
+  LuCpu, 
+  LuWifi, 
+  LuWifiOff,
+  LuSparkles
+} from 'react-icons/lu';
 import { useConnection } from '../hooks/useConnection';
 import { getRemoteModels, getPairedDevices, initiatePairing as invokeInitiatePairing } from '../lib/tauri';
 import { useDiscovery } from '../hooks/useDiscovery';
@@ -66,8 +77,6 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming]);
 
-
-
   const handleSend = () => {
     if (inputVal.trim() && isConnected) {
       sendMessage(inputVal.trim());
@@ -124,7 +133,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
       <div className="flex items-center justify-between" style={{ padding: 'var(--gc-space-md) var(--gc-space-lg)', background: 'var(--gc-surface)', borderBottom: '1px solid var(--gc-border)' }}>
         <div className="flex items-center gap-md">
           <div className="flex flex-col">
-            <span style={{ fontSize: '14px', fontWeight: 600 }}>Host Node</span>
+            <span style={{ fontSize: '13px', fontWeight: 600 }}>Host Compute Node</span>
             <div className="flex items-center gap-xs">
               <StatusDot status={isConnected ? 'active' : isConnecting ? 'connecting' : 'error'} />
               <span className="text-muted" style={{ fontSize: '12px' }}>
@@ -132,16 +141,32 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
               </span>
             </div>
           </div>
-          <Badge variant="info">LAN</Badge>
-          {isConnected && <span className="text-muted text-mono" style={{ fontSize: '12px' }}>{status.Connected.latency_ms}ms</span>}
+          <Badge variant="info">
+            <span className="flex items-center gap-xs">
+              {isConnected ? <LuWifi size={12} /> : <LuWifiOff size={12} />}
+              {isConnected ? 'Active Peer' : 'Offline'}
+            </span>
+          </Badge>
+          {isConnected && (
+            <span 
+              className="text-mono" 
+              style={{ 
+                fontSize: '12px',
+                color: status.Connected.latency_ms < 60 ? 'var(--gc-success)' : status.Connected.latency_ms < 150 ? 'var(--gc-warning)' : 'var(--gc-text-muted)'
+              }}
+            >
+              {status.Connected.latency_ms}ms
+            </span>
+          )}
         </div>
         
         <div className="flex items-center gap-md">
           <div className="flex items-center" style={{ background: 'var(--gc-bg)', padding: '2px', borderRadius: 'var(--gc-radius-md)', border: '1px solid var(--gc-border)' }}>
             <button
               onClick={() => setActiveTab('chat')}
+              className="flex items-center gap-xs"
               style={{
-                padding: '4px 12px',
+                padding: '5px 12px',
                 border: 'none',
                 background: activeTab === 'chat' ? 'var(--gc-surface)' : 'transparent',
                 color: activeTab === 'chat' ? 'var(--gc-text)' : 'var(--gc-text-muted)',
@@ -149,15 +174,17 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                 fontSize: '13px',
                 fontWeight: 500,
                 cursor: 'pointer',
-                boxShadow: activeTab === 'chat' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                boxShadow: activeTab === 'chat' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
               }}
             >
+              <LuMessageSquare size={13} />
               Chat
             </button>
             <button
               onClick={() => setActiveTab('integrations')}
+              className="flex items-center gap-xs"
               style={{
-                padding: '4px 12px',
+                padding: '5px 12px',
                 border: 'none',
                 background: activeTab === 'integrations' ? 'var(--gc-surface)' : 'transparent',
                 color: activeTab === 'integrations' ? 'var(--gc-text)' : 'var(--gc-text-muted)',
@@ -165,15 +192,17 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                 fontSize: '13px',
                 fontWeight: 500,
                 cursor: 'pointer',
-                boxShadow: activeTab === 'integrations' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                boxShadow: activeTab === 'integrations' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
               }}
             >
+              <LuBox size={13} />
               Integrations
             </button>
             <button
               onClick={() => setActiveTab('telemetry')}
+              className="flex items-center gap-xs"
               style={{
-                padding: '4px 12px',
+                padding: '5px 12px',
                 border: 'none',
                 background: activeTab === 'telemetry' ? 'var(--gc-surface)' : 'transparent',
                 color: activeTab === 'telemetry' ? 'var(--gc-text)' : 'var(--gc-text-muted)',
@@ -181,14 +210,15 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                 fontSize: '13px',
                 fontWeight: 500,
                 cursor: 'pointer',
-                boxShadow: activeTab === 'telemetry' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                boxShadow: activeTab === 'telemetry' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
               }}
             >
+              <LuActivity size={13} />
               Telemetry
             </button>
           </div>
           
-          <select className="input" style={{ width: '150px', padding: '4px 8px', height: 'auto' }} value={selectedModel} onChange={e => setSelectedModel(e.target.value)} disabled={!isConnected || remoteModels.length === 0}>
+          <select className="input" style={{ width: '160px', padding: '5px 8px', height: 'auto', fontSize: '13px' }} value={selectedModel} onChange={e => setSelectedModel(e.target.value)} disabled={!isConnected || remoteModels.length === 0}>
             {remoteModels.length > 0 ? remoteModels.map(m => (
               <option key={m} value={m}>{m}</option>
             )) : (
@@ -204,6 +234,30 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
       {activeTab === 'chat' ? (
         <>
           <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--gc-space-xl)' }} className="flex flex-col gap-md">
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center text-center" style={{ flex: 1, minHeight: '300px' }}>
+                <div 
+                  className="flex items-center justify-center text-accent"
+                  style={{ 
+                    width: '56px', 
+                    height: '56px', 
+                    borderRadius: '50%', 
+                    background: 'var(--gc-accent-muted)',
+                    border: '1px solid var(--gc-border)',
+                    marginBottom: 'var(--gc-space-md)'
+                  }}
+                >
+                  <LuSparkles size={26} />
+                </div>
+                <h3 style={{ fontSize: '17px', fontWeight: 600, marginBottom: '6px' }}>Remote Compute Terminal</h3>
+                <p className="text-muted" style={{ fontSize: '13px', maxWidth: '380px', lineHeight: 1.5 }}>
+                  {isConnected 
+                    ? `Connected to host node. Selected model: ${selectedModel || 'Default'}. Send a message to start inference.`
+                    : 'Not connected to a host node. Go to Pairing to connect to your host gaming laptop.'}
+                </p>
+              </div>
+            )}
+
             {messages.map((msg, i) => (
               <div 
                 key={i} 
@@ -214,15 +268,25 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                   alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start'
                 }}
               >
-                <span className="text-muted" style={{ fontSize: '12px', marginBottom: 'var(--gc-space-xs)' }}>
-                  {msg.role === 'user' ? 'You' : 'Assistant'}
-                </span>
+                <div className="flex items-center gap-xs text-muted" style={{ fontSize: '11px', marginBottom: '4px' }}>
+                  {msg.role === 'user' ? (
+                    <>
+                      <LuUser size={12} />
+                      <span>You</span>
+                    </>
+                  ) : (
+                    <>
+                      <LuCpu size={12} className="text-accent" />
+                      <span>Host Compute Engine</span>
+                    </>
+                  )}
+                </div>
                 <div 
                   style={{
-                    background: msg.role === 'user' ? 'var(--gc-surface)' : 'transparent',
-                    border: msg.role === 'user' ? '1px solid var(--gc-border)' : 'none',
-                    padding: msg.role === 'user' ? 'var(--gc-space-md)' : 0,
-                    borderRadius: 'var(--gc-radius-md)',
+                    background: msg.role === 'user' ? 'var(--gc-surface)' : 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid var(--gc-border)',
+                    padding: 'var(--gc-space-md) var(--gc-space-lg)',
+                    borderRadius: 'var(--gc-radius-lg)',
                     color: 'var(--gc-text)',
                     lineHeight: 1.5,
                     fontSize: '14px'
@@ -234,7 +298,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
             ))}
             {isStreaming && (
               <div className="flex items-center gap-xs text-muted" style={{ fontSize: '12px', padding: 'var(--gc-space-sm) 0' }}>
-                <span className="spinner">...</span> Assistant is typing
+                <span className="spinner">...</span> Host node is generating tokens...
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -247,7 +311,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Send a message..."
+                placeholder={isConnected ? "Send a message or code prompt to host..." : "Connect to host node to chat..."}
                 disabled={!isConnected}
                 style={{ 
                   resize: 'none', 
@@ -260,9 +324,11 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
               <Button 
                 onClick={handleSend} 
                 disabled={!inputVal.trim() || !isConnected}
-                style={{ alignSelf: 'flex-end' }}
+                className="flex items-center gap-xs"
+                style={{ alignSelf: 'flex-end', height: '42px', padding: '0 16px' }}
               >
-                Send
+                <LuSend size={14} />
+                <span>Send</span>
               </Button>
             </div>
           </div>

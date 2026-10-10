@@ -1,20 +1,14 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { listen as tauriListen, EventCallback, UnlistenFn } from '@tauri-apps/api/event';
 
-// Check if we're running inside Tauri
-const isTauri = '__TAURI_INTERCEPT_IPC_REQUEST__' in window || '__TAURI_IPC__' in window;
+// We let the Tauri core API handle IPC routing, as checking window variables
+// is unreliable across different OS webviews in Tauri v2.
 
 async function safeInvoke<T>(cmd: string, args?: any): Promise<T> {
-  if (!isTauri) {
-    throw new Error(`Tauri IPC not found. GhostCompute must be run as a desktop app (e.g., 'npm run tauri dev'), not in a standard web browser. Failed to invoke: ${cmd}`);
-  }
   return tauriInvoke<T>(cmd, args);
 }
 
 export async function safeListen<T>(event: string, handler: EventCallback<T>): Promise<UnlistenFn> {
-  if (!isTauri) {
-    throw new Error(`Tauri IPC not found. GhostCompute must be run as a desktop app. Failed to listen to: ${event}`);
-  }
   return tauriListen<T>(event, handler);
 }
 
@@ -160,5 +154,6 @@ export interface ApiProxyStatus {
 export const startApiProxy = () => safeInvoke<void>('start_api_proxy');
 export const stopApiProxy = () => safeInvoke<void>('stop_api_proxy');
 export const getApiProxyStatus = () => safeInvoke<ApiProxyStatus>('get_api_proxy_status');
+export const getLocalIp = () => safeInvoke<string>('get_local_ip');
 
-export { isTauri };
+export const isTauri = true;

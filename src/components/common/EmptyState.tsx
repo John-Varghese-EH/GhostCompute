@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 
 export interface EmptyStateProps {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   description: string;
   action?: ReactNode;
@@ -15,9 +15,22 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description
         padding: 'var(--gc-space-xl) var(--gc-space-md)',
       }}
     >
-      <div style={{ fontSize: '32px', marginBottom: 'var(--gc-space-sm)' }}>{icon}</div>
-      <h3 style={{ fontSize: '16px', fontWeight: 500 }}>{title}</h3>
-      <p className="text-muted" style={{ fontSize: '14px', maxWidth: '300px' }}>
+      <div 
+        className="flex items-center justify-center text-muted"
+        style={{ 
+          width: '56px',
+          height: '56px',
+          borderRadius: '50%',
+          background: 'rgba(255, 255, 255, 0.03)',
+          border: '1px solid var(--gc-border)',
+          marginBottom: 'var(--gc-space-sm)',
+          fontSize: '24px'
+        }}
+      >
+        {icon}
+      </div>
+      <h3 style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '-0.2px' }}>{title}</h3>
+      <p className="text-muted" style={{ fontSize: '13px', maxWidth: '320px', lineHeight: 1.5 }}>
         {description}
       </p>
       {action && <div style={{ marginTop: 'var(--gc-space-md)' }}>{action}</div>}

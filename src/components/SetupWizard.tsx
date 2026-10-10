@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LuServer, LuLaptop } from 'react-icons/lu';
 import { Button } from './common/Button';
 import { PairingPanel } from './PairingPanel';
 import { useOllama } from '../hooks/useOllama';
@@ -58,33 +59,71 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
           {step === 1 && (
             <div className="flex gap-md">
               <div 
-                className="card glass-panel flex flex-col items-center gap-sm" 
+                className="card glass-panel flex flex-col items-center gap-md" 
                 style={{ 
                   flex: 1, 
                   cursor: 'pointer', 
-                  border: role === 'host' ? '1px solid var(--gc-accent)' : '1px solid var(--gc-border)',
-                  padding: 'var(--gc-space-xl)'
+                  border: role === 'host' ? '1.5px solid var(--gc-accent)' : '1px solid var(--gc-border)',
+                  background: role === 'host' ? 'rgba(59, 130, 246, 0.05)' : 'var(--gc-surface)',
+                  padding: 'var(--gc-space-xl) var(--gc-space-lg)',
+                  borderRadius: 'var(--gc-radius-lg)',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
                 onClick={() => setRole('host')}
               >
-                <div style={{ fontSize: '48px' }}>🖥️</div>
-                <h3 style={{ fontSize: '18px', fontWeight: 600 }}>Host</h3>
-                <p className="text-muted text-center" style={{ fontSize: '14px' }}>Share your GPU for AI inference</p>
+                <div 
+                  className="flex items-center justify-center"
+                  style={{ 
+                    width: '64px', 
+                    height: '64px', 
+                    borderRadius: '50%',
+                    background: role === 'host' ? 'var(--gc-accent-muted)' : 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid var(--gc-border)',
+                    color: role === 'host' ? 'var(--gc-accent)' : 'var(--gc-text)'
+                  }}
+                >
+                  <LuServer size={30} />
+                </div>
+                <div className="text-center">
+                  <h3 style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>Host Node</h3>
+                  <p className="text-muted" style={{ fontSize: '13px', lineHeight: 1.4 }}>
+                    Gaming laptop / Workstation with GPU running Ollama
+                  </p>
+                </div>
               </div>
 
               <div 
-                className="card glass-panel flex flex-col items-center gap-sm" 
+                className="card glass-panel flex flex-col items-center gap-md" 
                 style={{ 
                   flex: 1, 
                   cursor: 'pointer', 
-                  border: role === 'client' ? '1px solid var(--gc-accent)' : '1px solid var(--gc-border)',
-                  padding: 'var(--gc-space-xl)'
+                  border: role === 'client' ? '1.5px solid var(--gc-accent)' : '1px solid var(--gc-border)',
+                  background: role === 'client' ? 'rgba(59, 130, 246, 0.05)' : 'var(--gc-surface)',
+                  padding: 'var(--gc-space-xl) var(--gc-space-lg)',
+                  borderRadius: 'var(--gc-radius-lg)',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
                 onClick={() => setRole('client')}
               >
-                <div style={{ fontSize: '48px' }}>💻</div>
-                <h3 style={{ fontSize: '18px', fontWeight: 600 }}>Client</h3>
-                <p className="text-muted text-center" style={{ fontSize: '14px' }}>Use a peer's GPU for AI</p>
+                <div 
+                  className="flex items-center justify-center"
+                  style={{ 
+                    width: '64px', 
+                    height: '64px', 
+                    borderRadius: '50%',
+                    background: role === 'client' ? 'var(--gc-accent-muted)' : 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid var(--gc-border)',
+                    color: role === 'client' ? 'var(--gc-accent)' : 'var(--gc-text)'
+                  }}
+                >
+                  <LuLaptop size={30} />
+                </div>
+                <div className="text-center">
+                  <h3 style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>Client Node</h3>
+                  <p className="text-muted" style={{ fontSize: '13px', lineHeight: 1.4 }}>
+                    Lightweight laptop accessing remote GPU compute
+                  </p>
+                </div>
               </div>
             </div>
           )}

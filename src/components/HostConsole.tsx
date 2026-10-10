@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { 
+  LuLayers, 
+  LuSmartphone, 
+  LuCpu, 
+  LuBox, 
+  LuSettings, 
+  LuPlugZap, 
+  LuCopy, 
+  LuCheck, 
+  LuWifi, 
+  LuGlobe
+} from 'react-icons/lu';
 import { useHosting } from '../hooks/useHosting';
 import { useOllama } from '../hooks/useOllama';
 import { useSettings } from '../hooks/useSettings';
-import { getPairedDevices, revokeDevice, TrustedPeer, generatePairingLink } from '../lib/tauri';
+import { getPairedDevices, revokeDevice, TrustedPeer, generatePairingLink, getLocalIp } from '../lib/tauri';
 import { Button } from './common/Button';
 import { Badge } from './common/Badge';
 import { StatusDot } from './common/StatusDot';
@@ -25,6 +37,12 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
   const [groqInput, setGroqInput] = useState('');
   const [devices, setDevices] = useState<TrustedPeer[]>([]);
   const [pairingLink, setPairingLink] = useState('');
+  const [localIp, setLocalIp] = useState('127.0.0.1');
+  const [copiedLan, setCopiedLan] = useState(false);
+
+  useEffect(() => {
+    getLocalIp().then(setLocalIp).catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (settings.cloudflare_token) {
@@ -56,6 +74,13 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
     }
   };
 
+  const copyLanAddress = () => {
+    const addr = `${localIp}:${settings.host_port || 8384}`;
+    navigator.clipboard.writeText(addr);
+    setCopiedLan(true);
+    setTimeout(() => setCopiedLan(false), 2000);
+  };
+
   return (
     <div className="flex" style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
       
@@ -67,8 +92,18 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
             <h1 style={{ fontSize: '20px', fontWeight: 600, letterSpacing: '-0.5px' }}>GhostCompute</h1>
           </div>
           <div className="flex items-center gap-sm" style={{ marginTop: 'var(--gc-space-sm)' }}>
-            <Badge variant="info">LAN Mode</Badge>
-            {settings.cloudflare_token && <Badge variant="success">Tunnel Ready</Badge>}
+            <Badge variant="info">
+              <span className="flex items-center gap-xs">
+                <LuWifi size={12} /> LAN Ready
+              </span>
+            </Badge>
+            {settings.cloudflare_token && (
+              <Badge variant="success">
+                <span className="flex items-center gap-xs">
+                  <LuGlobe size={12} /> Tunnel
+                </span>
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -77,27 +112,27 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
             { 
               id: 'sessions', 
               label: 'Sessions', 
-              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+              icon: <LuLayers size={18} />
             },
             { 
               id: 'devices', 
               label: 'Paired Devices', 
-              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+              icon: <LuSmartphone size={18} />
             },
             { 
               id: 'model', 
-              label: 'Model', 
-              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              label: 'Model Engine', 
+              icon: <LuCpu size={18} />
             },
             {
               id: 'integrations',
               label: 'Integrations',
-              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 12h8"></path><path d="M12 8v8"></path><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect></svg>
+              icon: <LuBox size={18} />
             },
             { 
               id: 'settings', 
               label: 'Settings', 
-              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              icon: <LuSettings size={18} />
             }
           ].map(nav => (
             <button
@@ -110,7 +145,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                 color: activeNav === nav.id ? 'var(--gc-text)' : 'var(--gc-text-muted)',
                 cursor: 'pointer',
                 fontFamily: 'var(--gc-font-ui)',
-                fontSize: '15px',
+                fontSize: '14px',
                 fontWeight: activeNav === nav.id ? 500 : 400,
                 borderRight: activeNav === nav.id ? '2px solid var(--gc-accent)' : '2px solid transparent',
                 transition: 'all 0.2s ease'
@@ -151,12 +186,62 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
         
         {activeNav === 'sessions' && (
           <div className="flex flex-col gap-md">
-            <h2 style={{ fontSize: '20px', fontWeight: 500 }}>Active Sessions</h2>
+            {/* Host Address & Status Banner */}
+            <div 
+              className="card glass-panel flex justify-between items-center"
+              style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid var(--gc-border)',
+                padding: 'var(--gc-space-md) var(--gc-space-lg)',
+                borderRadius: 'var(--gc-radius-lg)'
+              }}
+            >
+              <div className="flex items-center gap-md">
+                <div 
+                  className="flex items-center justify-center text-accent"
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: 'var(--gc-radius-md)',
+                    background: 'var(--gc-accent-muted)'
+                  }}
+                >
+                  <LuWifi size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-sm">
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>Host LAN Address</span>
+                    <Badge variant="info">Port {settings.host_port || 8384}</Badge>
+                  </div>
+                  <div className="text-muted text-mono" style={{ fontSize: '13px', marginTop: '2px' }}>
+                    {localIp}:{settings.host_port || 8384}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-sm">
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={copyLanAddress}
+                  className="flex items-center gap-xs"
+                >
+                  {copiedLan ? <LuCheck size={14} className="text-success" /> : <LuCopy size={14} />}
+                  <span>{copiedLan ? 'Copied' : 'Copy LAN IP'}</span>
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center" style={{ marginTop: 'var(--gc-space-sm)' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600 }}>Active Sessions</h2>
+              <span className="text-muted" style={{ fontSize: '13px' }}>{sessions.length} connected</span>
+            </div>
+
             {sessions.length === 0 ? (
               <EmptyState 
-                icon="🔌" 
-                title="No active sessions" 
-                description="Waiting for clients to connect." 
+                icon={<LuPlugZap size={24} />} 
+                title="No active client sessions" 
+                description="Waiting for client laptops to connect. Share your LAN IP or Quick Tunnel address." 
               />
             ) : (
               <div className="flex flex-col gap-sm">
@@ -182,7 +267,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
         {activeNav === 'devices' && (
           <div className="flex flex-col gap-md">
             <div className="flex justify-between items-center">
-              <h2 style={{ fontSize: '20px', fontWeight: 500 }}>Paired Devices</h2>
+              <h2 style={{ fontSize: '18px', fontWeight: 600 }}>Paired Devices</h2>
               <Button onClick={async () => {
                 try {
                   const link = await generatePairingLink();
@@ -206,7 +291,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
 
             {devices.length === 0 ? (
               <EmptyState 
-                icon="📱" 
+                icon={<LuSmartphone size={24} />} 
                 title="No paired devices" 
                 description="You haven't paired with any clients yet." 
               />
