@@ -8,7 +8,8 @@ import {
   LuGlobe,
   LuCopy,
   LuCheck,
-  LuClipboard
+  LuClipboard,
+  LuHistory
 } from 'react-icons/lu';
 import { useDiscovery } from '../hooks/useDiscovery';
 import { usePairing } from '../hooks/usePairing';
@@ -32,6 +33,25 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
   const [generatedCode, setGeneratedCode] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [localIp, setLocalIp] = useState('127.0.0.1');
+  const [recentHosts, setRecentHosts] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('gc_recent_hosts');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const saveRecentHost = (host: string) => {
+    try {
+      const raw = localStorage.getItem('gc_recent_hosts');
+      const existing: string[] = raw ? JSON.parse(raw) : [];
+      const filtered = existing.filter(h => h !== host);
+      const updated = [host, ...filtered].slice(0, 4);
+      localStorage.setItem('gc_recent_hosts', JSON.stringify(updated));
+      setRecentHosts(updated);
+    } catch {}
+  };
 
   useEffect(() => {
     getLocalIp().then(setLocalIp).catch(console.error);
@@ -66,51 +86,41 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
 
   return (
     <div className="flex flex-col gap-md" style={{ width: '100%', maxWidth: '520px', margin: '0 auto' }}>
-      <div className="flex" style={{ borderBottom: '1px solid var(--gc-border)' }}>
-        <button
-          className={`btn btn-ghost flex items-center justify-center gap-xs ${activeTab === 'nearby' ? 'active-tab' : ''}`}
-          onClick={() => setActiveTab('nearby')}
-          style={{ 
-            flex: 1, 
-            borderRadius: 'var(--gc-radius-md) var(--gc-radius-md) 0 0', 
-            borderBottom: activeTab === 'nearby' ? '2px solid var(--gc-accent)' : 'none',
-            fontSize: '13px'
-          }}
-        >
-          <LuRadio size={14} />
-          <span>Nearby</span>
-        </button>
-        <button
-          className={`btn btn-ghost flex items-center justify-center gap-xs ${activeTab === 'code' ? 'active-tab' : ''}`}
-          onClick={() => setActiveTab('code')}
-          style={{ 
-            flex: 1, 
-            borderRadius: 'var(--gc-radius-md) var(--gc-radius-md) 0 0', 
-            borderBottom: activeTab === 'code' ? '2px solid var(--gc-accent)' : 'none',
-            fontSize: '13px'
-          }}
-        >
-          <LuLink2 size={14} />
-          <span>Direct / Tunnel</span>
-        </button>
-        {(mode === 'host' || mode === 'both') && (
+      <div className="flex justify-center" style={{ marginBottom: 'var(--gc-space-xs)' }}>
+        <div className="segmented-control" style={{ width: '100%' }}>
           <button
-            className={`btn btn-ghost flex items-center justify-center gap-xs ${activeTab === 'link' ? 'active-tab' : ''}`}
-            onClick={() => setActiveTab('link')}
-            style={{ 
-              flex: 1, 
-              borderRadius: 'var(--gc-radius-md) var(--gc-radius-md) 0 0', 
-              borderBottom: activeTab === 'link' ? '2px solid var(--gc-accent)' : 'none',
-              fontSize: '13px'
-            }}
+            type="button"
+            className={`segmented-item ${activeTab === 'nearby' ? 'active' : ''}`}
+            onClick={() => setActiveTab('nearby')}
+            style={{ flex: 1, justifyContent: 'center' }}
           >
-            <LuQrCode size={14} />
-            <span>Pairing Link</span>
+            <LuRadio size={13} className={isSearching ? 'breathe-pulse' : ''} />
+            <span>Nearby Discovery</span>
           </button>
-        )}
+          <button
+            type="button"
+            className={`segmented-item ${activeTab === 'code' ? 'active' : ''}`}
+            onClick={() => setActiveTab('code')}
+            style={{ flex: 1, justifyContent: 'center' }}
+          >
+            <LuLink2 size={13} />
+            <span>Direct / Tunnel</span>
+          </button>
+          {(mode === 'host' || mode === 'both') && (
+            <button
+              type="button"
+              className={`segmented-item ${activeTab === 'link' ? 'active' : ''}`}
+              onClick={() => setActiveTab('link')}
+              style={{ flex: 1, justifyContent: 'center' }}
+            >
+              <LuQrCode size={13} />
+              <span>Pairing Link</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="card glass-panel" style={{ minHeight: '280px' }}>
+      <div className="card glass-panel" style={{ minHeight: '280px', padding: '20px' }}>
         {activeTab === 'nearby' && (
           <div className="flex flex-col gap-sm">
             <div className="flex justify-between items-center" style={{ marginBottom: 'var(--gc-space-sm)' }}>
@@ -161,6 +171,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
               const val = codeInputValue.trim();
               if (val) {
                 if (val.includes('.') || val.startsWith('http')) {
+                  saveRecentHost(val);
                   connectToUrl(val);
                 } else {
                   submitCode(val);
@@ -177,6 +188,33 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
               />
               <Button type="submit">Connect</Button>
             </form>
+
+            {recentHosts.length > 0 && (
+              <div style={{ marginTop: 'var(--gc-space-xs)' }}>
+                <span className="text-muted flex items-center gap-xs" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <LuHistory size={11} />
+                  <span>Recent Connections:</span>
+                </span>
+                <div className="flex flex-wrap gap-xs" style={{ marginTop: '6px' }}>
+                  {recentHosts.map((host, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className="btn btn-ghost flex items-center gap-xs text-mono"
+                      style={{ fontSize: '11px', padding: '4px 8px', background: 'rgba(255, 255, 255, 0.04)' }}
+                      onClick={() => {
+                        setCodeInputValue(host);
+                        connectToUrl(host);
+                      }}
+                      title={`Click to connect to ${host}`}
+                    >
+                      <LuGlobe size={11} className="text-accent" />
+                      <span className="truncate" style={{ maxWidth: '200px' }}>{host}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div style={{ marginTop: 'var(--gc-space-xs)' }}>
               <div className="flex justify-between items-center">
@@ -277,7 +315,19 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
           <p className="text-muted text-center" style={{ fontSize: '13px', maxWidth: '340px' }}>
             Confirm that the exact security key below matches the display on the other laptop.
           </p>
-          <div className="text-mono" style={{ fontSize: '28px', fontWeight: 600, letterSpacing: '4px', background: 'var(--gc-bg)', padding: 'var(--gc-space-md) var(--gc-space-xl)', borderRadius: 'var(--gc-radius-lg)', border: '1.5px solid var(--gc-accent)' }}>
+          <div 
+            className="text-mono" 
+            style={{ 
+              fontSize: '26px', 
+              fontWeight: 600, 
+              letterSpacing: '6px', 
+              background: 'rgba(0, 0, 0, 0.45)', 
+              padding: '16px 28px', 
+              borderRadius: 'var(--gc-radius-md)', 
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5), 0 0 16px rgba(255,255,255,0.03)'
+            }}
+          >
             {typeof state === 'object' && 'AwaitingConfirmation' in state ? state.AwaitingConfirmation.sas : ''}
           </div>
         </div>

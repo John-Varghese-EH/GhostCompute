@@ -16,17 +16,17 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseClass = `btn btn-${variant} ${className}`;
-  const style = size === 'sm' ? { padding: '4px 8px', fontSize: '12px' } : {};
+  const sizeStyle: React.CSSProperties = size === 'sm' ? { padding: '5px 10px', fontSize: '12px' } : {};
 
   return (
     <button
       className={baseClass}
       disabled={disabled || loading}
-      style={style}
       {...props}
+      style={{ ...sizeStyle, ...props.style }}
     >
       {loading ? (
-        <span className="spinner">...</span>
+        <span className="spinner" />
       ) : null}
       {children}
     </button>

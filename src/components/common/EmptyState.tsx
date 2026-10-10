@@ -18,13 +18,14 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description
       <div 
         className="flex items-center justify-center text-muted"
         style={{ 
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
+          width: '52px',
+          height: '52px',
+          borderRadius: '16px',
           background: 'rgba(255, 255, 255, 0.03)',
           border: '1px solid var(--gc-border)',
+          boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.08)',
           marginBottom: 'var(--gc-space-sm)',
-          fontSize: '24px'
+          fontSize: '22px'
         }}
       >
         {icon}

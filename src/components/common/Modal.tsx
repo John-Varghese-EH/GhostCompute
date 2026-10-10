@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, ReactNode } from 'react';
+import { LuX } from 'react-icons/lu';
 
 export interface ModalProps {
   open: boolean;
@@ -33,47 +34,45 @@ export const Modal: React.FC<ModalProps> = ({ open, onClose, title, children, fo
       ref={dialogRef}
       onClose={onClose}
       onClick={handleBackdropClick}
+      className="glass-panel"
       style={{
         margin: 'auto',
         padding: 0,
-        backgroundColor: 'var(--gc-surface)',
+        backgroundColor: 'rgba(20, 20, 23, 0.92)',
         color: 'var(--gc-text)',
         border: '1px solid var(--gc-border)',
         borderRadius: 'var(--gc-radius-lg)',
         width: '100%',
-        maxWidth: '400px',
-        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.5)',
+        maxWidth: '440px',
+        boxShadow: 'var(--gc-shadow-lg)',
+        outline: 'none',
       }}
     >
-      <div className="flex flex-col gap-md" style={{ padding: 'var(--gc-space-md)' }}>
-        <div className="flex items-center justify-between">
-          <h2 style={{ fontSize: '16px', fontWeight: 600 }}>{title}</h2>
+      <div className="flex flex-col gap-md" style={{ padding: '20px' }}>
+        <div className="flex items-center justify-between" style={{ borderBottom: '1px solid var(--gc-border)', paddingBottom: '12px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '-0.2px' }}>{title}</h2>
           <button
             onClick={onClose}
+            className="btn btn-ghost"
             style={{
-              background: 'transparent',
+              padding: '3px 6px',
               border: 'none',
+              borderRadius: 'var(--gc-radius-sm)',
               color: 'var(--gc-text-muted)',
               cursor: 'pointer',
-              fontSize: '18px',
             }}
+            title="Close"
           >
-            &times;
+            <LuX size={15} />
           </button>
         </div>
-        <div>{children}</div>
+        <div style={{ padding: '4px 0' }}>{children}</div>
         {footer && (
-          <div className="flex items-center justify-between gap-sm" style={{ marginTop: 'var(--gc-space-sm)' }}>
+          <div className="flex items-center justify-end gap-sm" style={{ marginTop: 'var(--gc-space-sm)', paddingTop: '12px', borderTop: '1px solid var(--gc-border)' }}>
             {footer}
           </div>
         )}
       </div>
-      <style>{`
-        dialog::backdrop {
-          background: rgba(0, 0, 0, 0.7);
-          backdrop-filter: blur(2px);
-        }
-      `}</style>
     </dialog>
   );
 };

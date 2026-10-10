@@ -27,14 +27,13 @@ export function useConnection() {
       }
     };
 
-    if (isConnected(status) || isConnecting(status) || isReconnecting(status)) {
-      intervalId = window.setInterval(checkStatus, 1000);
-    }
+    checkStatus();
+    intervalId = window.setInterval(checkStatus, 1500);
 
     return () => {
       if (intervalId) window.clearInterval(intervalId);
     };
-  }, [status]);
+  }, []);
 
   const connect = useCallback(async (peerId: string) => {
     try {

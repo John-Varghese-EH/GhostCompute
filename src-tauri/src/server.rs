@@ -387,16 +387,22 @@ impl HostServer {
                     .map_err(|e| ServerError::Io(std::io::Error::other(e)))?;
 
                 log::info!("Spawning cloudflared tunnel using {:?}", cf_bin);
-                match Command::new(&cf_bin)
-                    .arg("tunnel")
+                let mut cmd = Command::new(&cf_bin);
+                cmd.arg("tunnel")
                     .arg("--no-autoupdate")
                     .arg("run")
                     .arg("--token")
                     .arg(token)
                     .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .spawn()
+                    .stderr(Stdio::null());
+
+                #[cfg(target_os = "windows")]
                 {
+                    use std::os::windows::process::CommandExt;
+                    cmd.creation_flags(0x08000000);
+                }
+
+                match cmd.spawn() {
                     Ok(child) => {
                         self.cloudflared_process = Some(child);
                         log::info!("Cloudflared tunnel spawned successfully.");

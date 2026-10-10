@@ -123,14 +123,12 @@ export function ResourceMonitor() {
           </div>
           <span className="text-mono" style={{ fontWeight: 600 }}>{stats.cpu_usage_percent.toFixed(1)}%</span>
         </div>
-        <div className="progress-container" style={{ height: '8px', background: 'rgba(255, 255, 255, 0.04)', borderRadius: '4px', overflow: 'hidden' }}>
+        <div className="progress-container">
           <div 
             className="progress-bar" 
             style={{ 
               width: `${Math.min(100, Math.max(0, stats.cpu_usage_percent))}%`,
-              backgroundColor: getProgressColor(stats.cpu_usage_percent),
-              height: '100%',
-              transition: 'width 0.4s ease'
+              backgroundColor: getProgressColor(stats.cpu_usage_percent)
             }}
           />
         </div>
@@ -147,14 +145,12 @@ export function ResourceMonitor() {
             {(stats.used_memory_mb / 1024).toFixed(1)} / {(stats.total_memory_mb / 1024).toFixed(1)} GB
           </span>
         </div>
-        <div className="progress-container" style={{ height: '8px', background: 'rgba(255, 255, 255, 0.04)', borderRadius: '4px', overflow: 'hidden' }}>
+        <div className="progress-container">
           <div 
             className="progress-bar" 
             style={{ 
               width: `${Math.min(100, Math.max(0, memPercent))}%`,
-              backgroundColor: getProgressColor(memPercent),
-              height: '100%',
-              transition: 'width 0.4s ease'
+              backgroundColor: getProgressColor(memPercent)
             }}
           />
         </div>

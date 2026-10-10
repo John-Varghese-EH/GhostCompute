@@ -1,52 +1,58 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  /* Apple-inspired Dark Mode Palette */
-  --gc-bg: #000000;
-  --gc-bg-secondary: #1c1c1e;
-  --gc-surface: rgba(28, 28, 30, 0.6);
-  --gc-surface-hover: rgba(44, 44, 46, 0.8);
-  --gc-border: rgba(255, 255, 255, 0.15);
-  --gc-border-focus: rgba(255, 255, 255, 0.3);
+  /* Apple-inspired Obsidian & Zinc Dark Palette */
+  --gc-bg: #09090b;
+  --gc-bg-elevated: #111114;
+  --gc-surface: rgba(24, 24, 27, 0.72);
+  --gc-surface-hover: rgba(39, 39, 42, 0.85);
+  --gc-surface-active: rgba(63, 63, 70, 0.6);
   
-  --gc-text: #ffffff;
-  --gc-text-muted: #ebebf599; /* Apple secondary text */
-  --gc-text-dim: #ebebf54d; /* Apple tertiary text */
+  /* Delicate Hairline Borders (Machined Depth) */
+  --gc-border: rgba(255, 255, 255, 0.08);
+  --gc-border-subtle: rgba(255, 255, 255, 0.04);
+  --gc-border-focus: rgba(10, 132, 255, 0.55);
+  
+  /* Typography Scale */
+  --gc-text: #f4f4f5;
+  --gc-text-muted: #a1a1aa;
+  --gc-text-dim: #71717a;
 
-  /* Apple System Blue */
+  /* Apple System Accents */
   --gc-accent: #0a84ff;
-  --gc-accent-hover: #409cff;
-  --gc-accent-muted: rgba(10, 132, 255, 0.15);
+  --gc-accent-hover: #2997ff;
+  --gc-accent-muted: rgba(10, 132, 255, 0.12);
   
-  --gc-danger: #ff453a; /* Apple System Red */
+  --gc-danger: #ff453a;
   --gc-danger-hover: #ff6961;
-  --gc-danger-muted: rgba(255, 69, 58, 0.15);
+  --gc-danger-muted: rgba(255, 69, 58, 0.12);
   
-  --gc-success: #32d74b; /* Apple System Green */
-  --gc-warning: #ffd60a; /* Apple System Yellow */
+  --gc-success: #30d158;
+  --gc-warning: #ffd60a;
 
+  /* Spacing Scale */
   --gc-space-xs: 4px;
   --gc-space-sm: 8px;
   --gc-space-md: 16px;
   --gc-space-lg: 24px;
   --gc-space-xl: 32px;
 
-  /* Apple-like Squircle approximations */
-  --gc-radius-sm: 8px;
-  --gc-radius-md: 12px;
-  --gc-radius-lg: 16px;
-  --gc-radius-xl: 24px;
+  /* Concentric Squircle Radii */
+  --gc-radius-sm: 6px;
+  --gc-radius-md: 10px;
+  --gc-radius-lg: 14px;
+  --gc-radius-xl: 20px;
   --gc-radius-full: 9999px;
 
-  /* Subtle, soft shadows */
-  --gc-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --gc-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --gc-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+  /* Tactile Physical Shadows */
+  --gc-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --gc-shadow-md: 0 4px 20px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --gc-shadow-lg: 0 16px 40px -4px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 
-  --gc-font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --gc-font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
   --gc-font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
   
-  --gc-glass: blur(30px) saturate(1.5);
+  --gc-glass: blur(28px) saturate(180%);
 }
 
 *, *::before, *::after {
@@ -61,29 +67,33 @@ body {
   font-family: var(--gc-font-ui);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-image: radial-gradient(circle at top right, rgba(10, 132, 255, 0.1) 0%, transparent 40%),
-                    radial-gradient(circle at bottom left, rgba(255, 69, 58, 0.05) 0%, transparent 40%);
+  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(120, 119, 198, 0.08), transparent 70%);
   background-attachment: fixed;
   min-height: 100vh;
+  letter-spacing: -0.01em;
 }
 
+/* Apple Native Scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.16);
   border-radius: var(--gc-radius-full);
-  border: 2px solid var(--gc-bg);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.28);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
-/* Glass Panels */
+/* Glass Panels with Specular Highlight */
 .glass-panel {
   background-color: var(--gc-surface);
   backdrop-filter: var(--gc-glass);
@@ -93,151 +103,226 @@ body {
   box-shadow: var(--gc-shadow-md);
 }
 
-/* Apple-style Buttons */
+/* Apple-style Buttons with Physical Press Feedback */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--gc-space-sm);
-  padding: 8px 16px;
+  padding: 7px 15px;
   border: 1px solid transparent;
-  border-radius: var(--gc-radius-full);
+  border-radius: var(--gc-radius-md);
   font-family: var(--gc-font-ui);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
   background: transparent;
   color: var(--gc-text);
   outline: none;
+  user-select: none;
 }
 .btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
   transform: none !important;
 }
 .btn:active:not(:disabled) {
-  transform: scale(0.96);
-  opacity: 0.8;
+  transform: scale(0.97);
 }
 
 .btn-primary {
   background-color: var(--gc-accent);
-  color: #fff;
-  font-weight: 600;
-  box-shadow: 0 4px 14px 0 rgba(10, 132, 255, 0.39);
+  color: #ffffff;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 .btn-primary:hover:not(:disabled) {
   background-color: var(--gc-accent-hover);
-  box-shadow: 0 6px 20px rgba(10, 132, 255, 0.23);
+  box-shadow: 0 2px 6px rgba(10, 132, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .btn-danger {
-  background-color: var(--gc-danger);
-  color: #fff;
-  font-weight: 600;
-  box-shadow: 0 4px 14px 0 rgba(255, 69, 58, 0.39);
+  background-color: rgba(255, 69, 58, 0.15);
+  color: var(--gc-danger);
+  border: 1px solid rgba(255, 69, 58, 0.25);
 }
 .btn-danger:hover:not(:disabled) {
-  background-color: var(--gc-danger-hover);
-  box-shadow: 0 6px 20px rgba(255, 69, 58, 0.23);
+  background-color: var(--gc-danger);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 1px 4px rgba(255, 69, 58, 0.4);
 }
 
 .btn-ghost {
-  border-color: var(--gc-border);
-  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--gc-border);
+  background-color: rgba(255, 255, 255, 0.04);
   color: var(--gc-text);
 }
 .btn-ghost:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
-/* Premium Cards */
+/* Apple Segmented Controls (macOS Unified Pill) */
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 3px;
+  border-radius: var(--gc-radius-md);
+  border: 1px solid var(--gc-border);
+  gap: 2px;
+}
+
+.segmented-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--gc-radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gc-text-muted);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+.segmented-item:hover:not(.active) {
+  color: var(--gc-text);
+  background: rgba(255, 255, 255, 0.03);
+}
+.segmented-item.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* macOS Sidebar Nav Items */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 1px 8px;
+  border-radius: var(--gc-radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gc-text-muted);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  border: none;
+  background: transparent;
+  text-align: left;
+  user-select: none;
+  width: calc(100% - 16px);
+}
+.nav-item:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--gc-text);
+}
+.nav-item.active {
+  background: rgba(255, 255, 255, 0.09);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Machined Cards */
 .card {
   background-color: var(--gc-surface);
   backdrop-filter: var(--gc-glass);
   -webkit-backdrop-filter: var(--gc-glass);
-  border: 0.5px solid var(--gc-border);
+  border: 1px solid var(--gc-border);
   border-radius: var(--gc-radius-lg);
   padding: var(--gc-space-md);
   box-shadow: var(--gc-shadow-md);
-  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Apple-style Inputs */
+/* Apple Recessed Inputs */
 .input {
   width: 100%;
-  padding: 10px 14px;
-  background-color: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--gc-radius-md);
+  padding: 9px 12px;
+  background-color: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
   color: var(--gc-text);
   font-family: var(--gc-font-ui);
-  font-size: 15px;
+  font-size: 13.5px;
   outline: none;
-  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .input::placeholder {
   color: var(--gc-text-dim);
 }
 .input:focus {
   border-color: var(--gc-accent);
-  background-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 0 0 4px var(--gc-accent-muted);
+  background-color: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .input:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-/* Elegant Badges */
+/* Quiet Micro-Badges */
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 6px;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--gc-radius-full);
   font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   border: 1px solid transparent;
+  line-height: 15px;
 }
 .badge-success {
-  background-color: rgba(50, 215, 75, 0.15);
+  background-color: rgba(48, 209, 88, 0.12);
   color: var(--gc-success);
+  border-color: rgba(48, 209, 88, 0.2);
 }
 .badge-warning {
-  background-color: rgba(255, 214, 10, 0.15);
+  background-color: rgba(255, 214, 10, 0.12);
   color: var(--gc-warning);
+  border-color: rgba(255, 214, 10, 0.2);
 }
 .badge-danger {
-  background-color: rgba(255, 69, 58, 0.15);
+  background-color: rgba(255, 69, 58, 0.12);
   color: var(--gc-danger);
+  border-color: rgba(255, 69, 58, 0.2);
 }
 .badge-info {
-  background-color: rgba(10, 132, 255, 0.15);
+  background-color: rgba(10, 132, 255, 0.12);
   color: var(--gc-accent);
+  border-color: rgba(10, 132, 255, 0.2);
 }
 .badge-neutral {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.06);
   color: var(--gc-text-muted);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
-/* Resource Monitor Progress Bars */
+/* Hardware Telemetry Progress Bars */
 .progress-container {
   width: 100%;
-  height: 6px;
-  background-color: rgba(255, 255, 255, 0.1);
+  height: 5px;
+  background-color: rgba(255, 255, 255, 0.06);
   border-radius: var(--gc-radius-full);
   overflow: hidden;
 }
 .progress-bar {
   height: 100%;
   border-radius: var(--gc-radius-full);
-  transition: width 0.5s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.5s ease;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.4s ease;
 }
 
-/* Utilities */
+/* Layout Utilities */
 .flex { display: flex; }
 .flex-col { flex-direction: column; }
 .flex-wrap { flex-wrap: wrap; }
@@ -259,7 +344,7 @@ body {
 .text-right { text-align: right; }
 .text-sm { font-size: 13px; }
 .text-lg { font-size: 18px; font-weight: 500; }
-.text-xl { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
+.text-xl { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
 .truncate {
   white-space: nowrap;
   overflow: hidden;
@@ -272,3 +357,152 @@ body {
 .relative { position: relative; }
 .absolute { position: absolute; }
 .hidden { display: none; }
+
+/* Hardware-accelerated Spinner */
+.spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: gc-spin 0.65s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes gc-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Subtle Breathing Glow for Status Lights */
+@keyframes gc-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.96); }
+}
+
+.breathe-pulse {
+  animation: gc-breathe 2.4s ease-in-out infinite;
+}
+
+/* Code Block Container (Machined Dark Surface) */
+.code-block-wrapper {
+  background: #08080a;
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-md);
+  overflow: hidden;
+  margin: var(--gc-space-sm) 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--gc-border);
+  font-size: 11px;
+  color: var(--gc-text-muted);
+}
+
+.code-block-content {
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-family: var(--gc-font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #e4e4e7;
+  white-space: pre;
+}
+
+/* Chat Bubbles (Linear / Apple iMessage Dark Style) */
+.chat-bubble-user {
+  background: rgba(10, 132, 255, 0.16);
+  border: 1px solid rgba(10, 132, 255, 0.28);
+  border-radius: 16px 16px 4px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.chat-bubble-assistant {
+  background: rgba(24, 24, 27, 0.7);
+  backdrop-filter: var(--gc-glass);
+  -webkit-backdrop-filter: var(--gc-glass);
+  border: 1px solid var(--gc-border);
+  border-radius: 16px 16px 16px 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Prompt Starter Bento Cards */
+.starter-card {
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: var(--gc-glass);
+  -webkit-backdrop-filter: var(--gc-glass);
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-lg);
+  padding: var(--gc-space-md);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gc-space-xs);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.starter-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.starter-card:active {
+  transform: translateY(0);
+}
+
+/* Prompt Studio Drawer */
+.studio-drawer {
+  width: 320px;
+  background: var(--gc-surface);
+  backdrop-filter: var(--gc-glass);
+  -webkit-backdrop-filter: var(--gc-glass);
+  border-left: 1px solid var(--gc-border);
+  display: flex;
+  flex-direction: column;
+  animation: gc-slide-in-right 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes gc-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Apple-style Progress Bars */
+.progress-container {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 9999px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 8px rgba(10, 132, 255, 0.3);
+}
+
+/* Minimalist Geometric Logo Styles */
+.gc-logo-glyph {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: center;
+}
+.gc-logo-glyph:hover {
+  transform: scale(1.05);
+}
+
