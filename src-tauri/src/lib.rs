@@ -82,7 +82,13 @@ async fn start_discovery(state: tauri::State<'_, AppState>) -> Result<(), String
             let mut peer_list = peers.lock().await;
             match event {
                 discovery::DiscoveryEvent::PeerFound(peer) => {
-                    if !peer_list.iter().any(|p| p.peer_id == peer.peer_id) {
+                    if let Some(existing) = peer_list.iter_mut().find(|p| p.peer_id == peer.peer_id) {
+                        for addr in peer.addresses {
+                            if !existing.addresses.contains(&addr) {
+                                existing.addresses.push(addr);
+                            }
+                        }
+                    } else {
                         peer_list.push(peer);
                     }
                 }
@@ -99,8 +105,8 @@ async fn start_discovery(state: tauri::State<'_, AppState>) -> Result<(), String
 #[tauri::command]
 async fn stop_discovery(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let mut mdns_lock = state.mdns.lock().await;
-    if let Some(handle) = mdns_lock.take() {
-        handle.shutdown().map_err(|e| format!("{}", e))?;
+    if let Some(handle) = mdns_lock.as_mut() {
+        let _ = handle.stop_browsing();
     }
     Ok(())
 }
@@ -305,7 +311,7 @@ async fn start_hosting(
     let gate = Arc::new(crate::admission::AdmissionGate::new(&settings));
     let cf_token = settings.cloudflare_token.clone();
 
-    server
+    match server
         .start(
             noise_priv,
             port,
@@ -315,7 +321,13 @@ async fn start_hosting(
             app,
         )
         .await
-        .map_err(|e| format!("{}", e))?;
+    {
+        Ok(_) => {},
+        Err(crate::server::ServerError::AlreadyRunning) => {
+            log::info!("[Server] Server already running on port {}", port);
+        },
+        Err(e) => return Err(format!("{}", e)),
+    }
 
     let mut mdns_lock = state.mdns.lock().await;
     if mdns_lock.is_none() {
@@ -323,10 +335,20 @@ async fn start_hosting(
         *mdns_lock = Some(handle);
     }
     if let Some(mdns) = mdns_lock.as_mut() {
-        let _ = mdns.start_advertising(state.identity.peer_id().as_str(), "GhostCompute", port);
+        if let Err(e) = mdns.start_advertising(state.identity.peer_id().as_str(), "GhostCompute", port) {
+            log::warn!("[mDNS] Failed to start advertising service on LAN: {}", e);
+        } else {
+            log::info!("[mDNS] Broadcasting GhostCompute node on port {}", port);
+        }
     }
 
     Ok(())
+}
+
+#[tauri::command]
+async fn is_hosting(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+    let server = state.server.lock().await;
+    Ok(server.is_running())
 }
 
 #[tauri::command]
@@ -851,6 +873,7 @@ pub fn run() {
             remove_device,
             // Host
             start_hosting,
+            is_hosting,
             stop_hosting,
             get_active_sessions,
             kill_session,

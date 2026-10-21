@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   getActiveSessions,
   startHosting as invokeStartHosting,
+  isHosting as invokeIsHosting,
   stopHosting as invokeStopHosting,
   killSession as invokeKillSession,
   killAllSessions as invokeKillAllSessions,
@@ -12,6 +13,14 @@ import {
 export function useHosting() {
   const [isHosting, setIsHosting] = useState(false);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
+
+  useEffect(() => {
+    invokeIsHosting().then(running => {
+      if (typeof running === 'boolean') {
+        setIsHosting(running);
+      }
+    }).catch(console.error);
+  }, []);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;

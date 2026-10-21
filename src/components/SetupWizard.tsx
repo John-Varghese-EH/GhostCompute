@@ -3,6 +3,7 @@ import { LuServer, LuLaptop, LuCheck, LuArrowRight, LuArrowLeft, LuDownload } fr
 import { Button } from './common/Button';
 import { PairingPanel } from './PairingPanel';
 import { useOllama } from '../hooks/useOllama';
+import { useHosting } from '../hooks/useHosting';
 import { StatusDot } from './common/StatusDot';
 import { IconBadge } from './common/IconBadge';
 import { ThemeToggle } from './common/ThemeToggle';
@@ -16,6 +17,13 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const [role, setRole] = useState<'host' | 'client' | null>(null);
   
   const { status, models, pullModel } = useOllama();
+  const { startHosting } = useHosting();
+
+  React.useEffect(() => {
+    if (step >= 2 && role === 'host') {
+      startHosting().catch(console.error);
+    }
+  }, [step, role, startHosting]);
 
   const handleNext = () => {
     if (step === 1 && role) {
@@ -39,7 +47,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
 
   const stepTitles = [
     'Choose Operating Mode',
-    'Pair & Connect Devices',
+    role === 'host' ? 'LAN Broadcast & Client Pairing' : 'Discover & Connect to Host',
     'Hardware & Model Engine'
   ];
 

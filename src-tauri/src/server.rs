@@ -475,4 +475,8 @@ impl HostServer {
             Err(_) => Vec::new(),
         }
     }
+
+    pub fn is_running(&self) -> bool {
+        self.listener_task.is_some()
+    }
 }

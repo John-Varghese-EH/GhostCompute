@@ -126,6 +126,12 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
   }, []);
 
   useEffect(() => {
+    if (!isHosting && settings?.auto_start_hosting !== false) {
+      startHosting().catch(console.error);
+    }
+  }, [isHosting, settings?.auto_start_hosting, startHosting]);
+
+  useEffect(() => {
     if (activeNav === 'devices') {
       getPairedDevices().then(setDevices).catch(console.error);
     }

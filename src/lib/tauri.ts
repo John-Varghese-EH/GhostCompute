@@ -223,6 +223,7 @@ export const getRemoteModels = () => safeInvoke<string[]>('get_remote_models');
 
 // Hosting
 export const startHosting = () => safeInvoke<void>('start_hosting');
+export const isHosting = () => safeInvoke<boolean>('is_hosting');
 export const stopHosting = () => safeInvoke<void>('stop_hosting');
 export const getActiveSessions = () => safeInvoke<SessionInfo[]>('get_active_sessions');
 export const killSession = (peer_id: string) => safeInvoke<void>('kill_session', { peer_id });

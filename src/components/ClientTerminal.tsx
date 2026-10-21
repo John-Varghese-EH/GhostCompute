@@ -20,7 +20,10 @@ import {
   LuLayers,
   LuCode,
   LuX,
-  LuGlobe
+  LuGlobe,
+  LuChevronRight,
+  LuFlame,
+  LuZap
 } from 'react-icons/lu';
 import { useConnection } from '../hooks/useConnection';
 import { getRemoteModels, getPairedDevices } from '../lib/tauri';
@@ -261,8 +264,29 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
     setTimeout(() => setCopiedProxy(false), 2000);
   };
 
+  // High-fidelity Markdown renderer with support for lists, headers, quotes, tables, and inline code
+  const formatMarkdownText = (raw: string): string => {
+    let text = raw;
+    // Headers
+    text = text.replace(/^### (.*$)/gim, '<h4 style="font-size: 14.5px; font-weight: 700; margin: 10px 0 4px; color: var(--gc-text);">$1</h4>');
+    text = text.replace(/^## (.*$)/gim, '<h3 style="font-size: 16px; font-weight: 700; margin: 12px 0 6px; color: var(--gc-text);">$1</h3>');
+    text = text.replace(/^# (.*$)/gim, '<h2 style="font-size: 18px; font-weight: 700; margin: 14px 0 8px; color: var(--gc-text);">$1</h2>');
+    // Bold & italic
+    text = text.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    // Blockquote
+    text = text.replace(/^\> (.*$)/gim, '<blockquote style="border-left: 3px solid var(--gc-accent); padding-left: 10px; margin: 6px 0; color: var(--gc-text-muted); font-style: italic;">$1</blockquote>');
+    // Unordered lists
+    text = text.replace(/^\s*[-*]\s+(.*$)/gim, '<li style="margin-left: 18px; margin-bottom: 2px;">$1</li>');
+    // Inline code
+    text = text.replace(/`([^`]+)`/g, '<code class="text-mono" style="background: var(--gc-surface-sunken); border: 1px solid var(--gc-border); padding: 2px 5px; border-radius: var(--gc-squircle-sm); corner-shape: squircle; font-size: 12px; color: var(--gc-accent-light);">$1</code>');
+    // Newlines
+    text = text.replace(/\n/g, '<br/>');
+    return text;
+  };
+
   const renderMessageContent = (content: string) => {
-    // Strip system directive tag if present in user message
     let cleanContent = content;
     if (cleanContent.startsWith('[System Directive:')) {
       cleanContent = cleanContent.replace(/^\[System Directive:[^\]]+\]\n\n/, '');
@@ -284,112 +308,132 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
         return <CodeBlock key={i} code={code.replace(/\r\n/g, '\n').trimEnd()} language={lang} />;
       }
       
-      let text = block;
-      text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      text = text.replace(/`([^`]+)`/g, '<code class="text-mono" style="background: var(--gc-bg); padding: 2px 4px; border-radius: var(--gc-radius-sm)">$1</code>');
-      
       return (
-        <span key={i} dangerouslySetInnerHTML={{ __html: text.replace(/\n/g, '<br/>') }} />
+        <span key={i} dangerouslySetInnerHTML={{ __html: formatMarkdownText(block) }} />
       );
     });
   };
 
   return (
-    <div className="flex flex-col" style={{ height: '100vh', width: '100vw', background: 'var(--gc-bg)' }}>
+    <div className="flex flex-col h-screen w-screen overflow-hidden" style={{ background: 'var(--gc-bg)' }}>
       
-      {/* Top bar */}
-      <div className="flex items-center justify-between" style={{ padding: '12px 20px', background: 'var(--gc-surface)', backdropFilter: 'var(--gc-glass)', WebkitBackdropFilter: 'var(--gc-glass)', borderBottom: '1px solid var(--gc-border)' }}>
-        <div className="flex items-center gap-md">
-          <div className="flex items-center gap-2 pr-2 border-r border-[var(--gc-border)]">
+      {/* Top bar (Responsive & Scalable) */}
+      <header 
+        className="flex items-center justify-between px-4 py-2.5 z-20 shrink-0 border-b transition-colors"
+        style={{ 
+          background: 'var(--gc-surface)', 
+          backdropFilter: 'var(--gc-glass)', 
+          WebkitBackdropFilter: 'var(--gc-glass)', 
+          borderColor: 'var(--gc-border)' 
+        }}
+      >
+        {/* Left Section: Brand & Peer Status */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 pr-3 border-r border-[var(--gc-border)]">
             <Logo size={22} className="text-accent" />
-            <span className="font-bold text-sm tracking-tight text-[var(--gc-text)] hidden sm:inline">GhostCompute</span>
+            <span className="font-bold text-sm tracking-tight text-[var(--gc-text)] hidden md:inline">GhostCompute</span>
           </div>
 
           <div className="flex flex-col">
-            <span style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '-0.01em' }}>Host Compute Node</span>
-            <div className="flex items-center gap-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[13px] font-semibold tracking-tight text-[var(--gc-text)]">Host Node</span>
+              {isConnected && (
+                <span 
+                  className="text-mono text-[11px] font-semibold px-1.5 py-0.5 rounded-sm"
+                  style={{ 
+                    background: 'var(--gc-surface-sunken)',
+                    color: status.Connected.latency_ms < 60 ? 'var(--gc-success)' : status.Connected.latency_ms < 150 ? 'var(--gc-warning)' : 'var(--gc-text-muted)',
+                    border: '1px solid var(--gc-border)'
+                  }}
+                  title="Round-trip latency to remote host"
+                >
+                  {status.Connected.latency_ms}ms
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
               <StatusDot status={isConnected ? 'active' : isConnecting ? 'connecting' : 'error'} />
-              <span className="text-muted" style={{ fontSize: '12px' }}>
-                {isConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Disconnected'}
+              <span className="text-muted text-[11.5px]">
+                {isConnected ? 'Peer Connected' : isConnecting ? 'Connecting...' : 'Disconnected'}
               </span>
             </div>
           </div>
-          <Badge variant="info" className="shrink-0">
-            <span className="flex items-center gap-xs">
+          
+          <Badge variant={isConnected ? 'success' : 'neutral'} className="hidden sm:inline-flex">
+            <span className="flex items-center gap-1">
               {isConnected ? <LuWifi size={11} /> : <LuWifiOff size={11} />}
-              {isConnected ? 'Active Peer' : 'Offline'}
+              <span>{isConnected ? 'ENCRYPTED' : 'OFFLINE'}</span>
             </span>
           </Badge>
-          {isConnected && (
-            <span 
-              className="text-mono" 
-              style={{ 
-                fontSize: '12px',
-                color: status.Connected.latency_ms < 60 ? 'var(--gc-success)' : status.Connected.latency_ms < 150 ? 'var(--gc-warning)' : 'var(--gc-text-muted)'
-              }}
-            >
-              {status.Connected.latency_ms}ms
-            </span>
-          )}
         </div>
         
-        <div className="flex items-center gap-md">
-          <div className="segmented-control">
+        {/* Right Section: Navigation Tabs & Session Controls */}
+        <div className="flex items-center gap-2.5">
+          <nav className="segmented-control">
             <button
               onClick={() => setActiveTab('chat')}
               className={`segmented-item ${activeTab === 'chat' ? 'active' : ''}`}
+              title="Remote AI Chat Terminal"
             >
               <LuMessageSquare size={13} />
-              <span>Chat</span>
+              <span className="hidden lg:inline">Chat</span>
             </button>
             <button
               onClick={() => setActiveTab('agents')}
               className={`segmented-item ${activeTab === 'agents' ? 'active' : ''}`}
+              title="Autonomous Agents & Quick Tool Presets"
             >
               <LuBot size={13} />
-              <span>Agents & Shortcuts</span>
+              <span className="hidden lg:inline">Agents</span>
             </button>
             <button
               onClick={() => setActiveTab('pairing')}
               className={`segmented-item ${activeTab === 'pairing' ? 'active' : ''}`}
+              title="Pairing, Network Discovery & Remote Nodes"
             >
-              <LuRadio size={13} className={isConnecting ? 'breathe-pulse' : ''} />
-              <span>Pairing & Network</span>
+              <LuRadio size={13} className={isConnecting ? 'breathe-pulse text-accent' : ''} />
+              <span className="hidden lg:inline">Pairing</span>
             </button>
             <button
               onClick={() => setActiveTab('integrations')}
               className={`segmented-item ${activeTab === 'integrations' ? 'active' : ''}`}
+              title="Tool Integrations & Quick Start configs"
             >
               <LuBox size={13} />
-              <span>Integrations</span>
+              <span className="hidden lg:inline">Integrations</span>
             </button>
             <button
               onClick={() => setActiveTab('telemetry')}
               className={`segmented-item ${activeTab === 'telemetry' ? 'active' : ''}`}
+              title="System Telemetry & VRAM Usage"
             >
               <LuActivity size={13} />
-              <span>Telemetry</span>
+              <span className="hidden lg:inline">Telemetry</span>
             </button>
-          </div>
+          </nav>
 
           {activeTab === 'chat' && (
             <button
               onClick={() => setShowStudio(!showStudio)}
-              className={`btn ${showStudio ? 'btn-primary' : 'btn-ghost'} flex items-center gap-xs`}
-              style={{ fontSize: '13px', padding: '5px 10px' }}
-              title="Toggle Prompt Studio & Parameters drawer"
+              className={`btn squircle-sm ${showStudio ? 'btn-primary' : 'btn-ghost'} flex items-center gap-1.5`}
+              style={{ 
+                fontSize: '12px', 
+                padding: '4px 10px',
+                borderRadius: 'var(--gc-squircle-sm)'
+              }}
+              title="Toggle Prompt Studio & Parameter tuning drawer"
             >
               <LuSlidersHorizontal size={13} />
-              <span>Studio</span>
+              <span className="hidden sm:inline">Studio</span>
               {selectedPersona.id !== 'general' && (
-                <span className="badge badge-info" style={{ fontSize: '10px', padding: '1px 5px' }}>
+                <span className="badge badge-info" style={{ fontSize: '9.5px', padding: '1px 5px' }}>
                   {selectedPersona.badge}
                 </span>
               )}
             </button>
           )}
           
-          <div style={{ width: '180px' }}>
+          <div className="w-[140px] sm:w-[170px]">
             <CustomSelect
               value={selectedModel}
               onChange={val => setSelectedModel(val)}
@@ -402,11 +446,40 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
               }))}
             />
           </div>
+
           <ThemeToggle size="sm" />
-          <Button variant="danger" size="sm" onClick={disconnect} disabled={!isConnected}>Disconnect</Button>
-          <Button variant="ghost" size="sm" onClick={onResetRole} disabled={isConnected}>Change Role</Button>
+
+          {isConnected ? (
+            <Button 
+              variant="danger" 
+              size="sm" 
+              onClick={disconnect}
+              className="squircle-sm"
+              style={{
+                borderRadius: 'var(--gc-squircle-sm)',
+                padding: '4px 11px',
+                fontSize: '12px'
+              }}
+            >
+              Disconnect
+            </Button>
+          ) : (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onResetRole}
+              className="squircle-sm"
+              style={{
+                borderRadius: 'var(--gc-squircle-sm)',
+                padding: '4px 11px',
+                fontSize: '12px'
+              }}
+            >
+              Change Role
+            </Button>
+          )}
         </div>
-      </div>
+      </header>
 
       {/* Main Tab Panels */}
       {activeTab === 'chat' ? (
@@ -446,30 +519,37 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                     </Button>
                   ) : (
                     /* Bento Prompt Starters Grid */
-                    <div style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', 
-                      gap: 'var(--gc-space-md)', 
-                      width: '100%', 
-                      maxWidth: '780px',
-                      marginTop: 'var(--gc-space-sm)'
-                    }}>
+                    <div 
+                      className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-[760px] mt-4"
+                    >
                       {PROMPT_STARTERS.map((starter, idx) => (
                         <div
                           key={idx}
-                          className="starter-card"
+                          className="starter-card group"
                           onClick={() => handleStarterClick(starter)}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="badge badge-neutral" style={{ fontSize: '10px' }}>{starter.category}</span>
-                            {starter.icon}
+                            <span 
+                              className="badge badge-neutral squircle-badge" 
+                              style={{ 
+                                fontSize: '10px', 
+                                padding: '2px 8px',
+                                borderRadius: 'var(--gc-squircle-badge)'
+                              }}
+                            >
+                              {starter.category}
+                            </span>
+                            <div className="p-1.5 rounded-lg bg-[var(--gc-surface-sunken)] group-hover:bg-[var(--gc-accent-muted)] transition-colors">
+                              {starter.icon}
+                            </div>
                           </div>
-                          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gc-text)', marginTop: '4px' }}>
-                            {starter.title}
+                          <div className="text-[13.5px] font-semibold text-[var(--gc-text)] mt-1 tracking-tight flex items-center justify-between">
+                            <span>{starter.title}</span>
+                            <LuChevronRight size={14} className="text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
-                          <div className="text-muted" style={{ fontSize: '12px', lineHeight: 1.4 }}>
+                          <p className="text-muted text-[12px] leading-relaxed m-0">
                             {starter.description}
-                          </div>
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -477,33 +557,50 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                 </div>
               ) : (
                 /* Chat Session Toolbar */
-                <div className="flex justify-between items-center" style={{ padding: '0 var(--gc-space-sm)', borderBottom: '1px solid var(--gc-border)', paddingBottom: '8px' }}>
-                  <div className="flex items-center gap-sm">
-                    <span className="text-muted" style={{ fontSize: '12px' }}>
-                      {messages.length} {messages.length === 1 ? 'message' : 'messages'}
+                <div 
+                  className="flex justify-between items-center px-3 py-2 border-b shrink-0"
+                  style={{ borderColor: 'var(--gc-border)' }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted text-[11.5px] font-medium">
+                      {messages.length} {messages.length === 1 ? 'turn' : 'turns'}
                     </span>
                     {selectedPersona.id !== 'general' && (
-                      <span className="badge badge-info flex items-center gap-xs" style={{ fontSize: '11px' }}>
-                        <span>Persona:</span>
-                        <strong>{selectedPersona.name}</strong>
+                      <span 
+                        className="badge badge-info squircle-badge flex items-center gap-1"
+                        style={{ 
+                          fontSize: '10.5px',
+                          borderRadius: 'var(--gc-squircle-badge)'
+                        }}
+                      >
+                        <LuSparkles size={10} />
+                        <span>{selectedPersona.name}</span>
                       </span>
                     )}
                   </div>
                   
-                  <div className="flex items-center gap-xs">
+                  <div className="flex items-center gap-1.5">
                     <button 
                       onClick={handleExportMarkdown} 
-                      className="btn btn-ghost flex items-center gap-xs text-muted"
-                      style={{ fontSize: '11px', padding: '3px 8px' }}
-                      title="Download conversation transcript as Markdown (.md)"
+                      className="btn btn-ghost squircle-sm flex items-center gap-1 text-muted"
+                      style={{ 
+                        fontSize: '11px', 
+                        padding: '3px 9px',
+                        borderRadius: 'var(--gc-squircle-sm)'
+                      }}
+                      title="Download full conversation transcript as Markdown (.md)"
                     >
                       <LuDownload size={12} />
                       <span>Export .md</span>
                     </button>
                     <button 
                       onClick={clearMessages} 
-                      className="btn btn-ghost flex items-center gap-xs text-muted"
-                      style={{ fontSize: '11px', padding: '3px 8px' }}
+                      className="btn btn-ghost squircle-sm flex items-center gap-1 text-muted hover:text-danger"
+                      style={{ 
+                        fontSize: '11px', 
+                        padding: '3px 9px',
+                        borderRadius: 'var(--gc-squircle-sm)'
+                      }}
                       title="Clear session history"
                     >
                       <LuTrash2 size={12} />
@@ -517,78 +614,101 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
               {messages.map((msg, i) => (
                 <div 
                   key={msg.id || i} 
-                  className="flex flex-col" 
+                  className="flex flex-col animate-fade-in" 
                   style={{ 
                     alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
                     maxWidth: '85%',
                     alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start'
                   }}
                 >
-                  <div className="flex items-center gap-xs text-muted" style={{ fontSize: '11px', marginBottom: '4px' }}>
+                  <div className="flex items-center gap-1.5 text-muted text-[11px] mb-1 px-1">
                     {msg.role === 'user' ? (
                       <>
                         <LuUser size={12} />
-                        <span>You</span>
+                        <span className="font-medium">You</span>
+                        <span className="text-[10px] text-dim font-mono">
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </>
                     ) : (
                       <>
                         <LuCpu size={12} className="text-accent" />
-                        <span>Host Compute Engine</span>
+                        <span className="font-medium">Host Compute Node</span>
+                        <span className="text-[10px] text-dim font-mono">
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </>
                     )}
                   </div>
                   <div 
                     className={msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'}
                     style={{
-                      padding: 'var(--gc-space-md) var(--gc-space-lg)',
-                      color: 'var(--gc-text)',
-                      lineHeight: 1.55,
-                      fontSize: '14px',
+                      padding: '12px 18px',
+                      lineHeight: 1.6,
+                      fontSize: '13.5px',
                       position: 'relative'
                     }}
                   >
                     {renderMessageContent(msg.content)}
 
                     {msg.role === 'assistant' && !isStreaming && (
-                      <div className="flex justify-end" style={{ marginTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '6px' }}>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(msg.content);
-                            setCopiedMsgId(msg.id || `${i}`);
-                            setTimeout(() => setCopiedMsgId(null), 2000);
-                          }}
-                          className="btn btn-ghost flex items-center gap-xs"
-                          style={{ fontSize: '11px', padding: '2px 6px', border: 'none', background: 'transparent', opacity: 0.7 }}
-                        >
-                          {copiedMsgId === (msg.id || `${i}`) ? <LuCheck size={11} className="text-success" /> : <LuCopy size={11} />}
-                          <span>{copiedMsgId === (msg.id || `${i}`) ? 'Copied' : 'Copy'}</span>
-                        </button>
+                      <div 
+                        className="flex items-center justify-between mt-2 pt-2 border-t"
+                        style={{ borderColor: 'var(--gc-border)' }}
+                      >
+                        <span className="text-[10.5px] text-dim font-mono flex items-center gap-1">
+                          <LuZap size={10} className="text-accent" />
+                          <span>{selectedModel || 'GPU Node'}</span>
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(msg.content);
+                              setCopiedMsgId(msg.id || `${i}`);
+                              setTimeout(() => setCopiedMsgId(null), 2000);
+                            }}
+                            className="btn btn-ghost squircle-sm flex items-center gap-1 text-muted hover:text-[var(--gc-text)]"
+                            style={{ 
+                              fontSize: '11px', 
+                              padding: '2px 8px',
+                              borderRadius: 'var(--gc-squircle-sm)',
+                              background: copiedMsgId === (msg.id || `${i}`) ? 'var(--gc-success-muted)' : 'transparent',
+                              color: copiedMsgId === (msg.id || `${i}`) ? 'var(--gc-success)' : undefined
+                            }}
+                          >
+                            {copiedMsgId === (msg.id || `${i}`) ? <LuCheck size={11} className="text-success" /> : <LuCopy size={11} />}
+                            <span>{copiedMsgId === (msg.id || `${i}`) ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
               ))}
               {isStreaming && (
-                <div className="flex items-center gap-xs text-muted" style={{ fontSize: '12px', padding: 'var(--gc-space-sm) 0' }}>
-                  <span className="spinner" /> Host GPU is streaming tokens...
+                <div className="flex items-center gap-2 text-muted text-[12px] py-2 animate-fade-in">
+                  <span className="spinner text-accent" /> 
+                  <span>Host GPU is streaming inference tokens...</span>
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Floating Unified Composer */}
-            <div style={{ padding: '14px 20px 18px', background: 'transparent' }}>
+            {/* Floating Unified Composer (Theme Aware & Squircle Geometry) */}
+            <div className="p-3 sm:p-4 shrink-0 bg-transparent">
               <div 
-                className="glass-panel flex flex-col"
+                className="flex flex-col squircle-lg transition-all"
                 style={{ 
                   maxWidth: '820px', 
                   margin: '0 auto',
                   padding: '10px 14px 10px',
-                  borderRadius: '16px',
-                  background: 'rgba(18, 18, 22, 0.85)',
+                  borderRadius: 'var(--gc-radius-lg)',
+                  background: 'var(--gc-surface)',
+                  backdropFilter: 'var(--gc-glass)',
+                  WebkitBackdropFilter: 'var(--gc-glass)',
                   border: '1px solid var(--gc-border)',
-                  boxShadow: 'var(--gc-shadow-md)',
-                  transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+                  boxShadow: 'var(--gc-shadow-md)'
                 }}
               >
                 <textarea 
@@ -596,7 +716,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                   value={inputVal}
                   onChange={(e) => setInputVal(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={isConnected ? "Send a prompt, code snippet, or query to host compute..." : "Connect to host node to chat..."}
+                  placeholder={isConnected ? `Send a prompt to ${selectedModel || 'remote compute node'}...` : "Connect to host node to chat..."}
                   disabled={!isConnected}
                   style={{ 
                     width: '100%',
@@ -606,33 +726,55 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                     color: 'var(--gc-text)',
                     fontFamily: 'var(--gc-font-ui)',
                     fontSize: '13.5px',
-                    lineHeight: 1.5,
+                    lineHeight: 1.55,
                     resize: 'none', 
                     minHeight: '38px',
-                    maxHeight: '130px',
+                    maxHeight: '140px',
                     overflowY: 'auto'
                   }}
                   rows={inputVal.split('\n').length > 1 ? Math.min(inputVal.split('\n').length, 6) : 1}
                 />
 
-                <div className="flex justify-between items-center" style={{ paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.05)', marginTop: '4px' }}>
-                  <div className="flex items-center gap-sm">
+                <div 
+                  className="flex justify-between items-center pt-2 mt-1 border-t"
+                  style={{ borderColor: 'var(--gc-border)' }}
+                >
+                  <div className="flex items-center gap-2">
                     {selectedPersona.id !== 'general' && (
-                      <span className="badge badge-info" style={{ fontSize: '10px' }}>
+                      <span 
+                        className="badge badge-info squircle-badge" 
+                        style={{ 
+                          fontSize: '9.5px', 
+                          padding: '2px 7px',
+                          borderRadius: 'var(--gc-squircle-badge)'
+                        }}
+                      >
                         {selectedPersona.name}
                       </span>
                     )}
-                    <span className="text-muted" style={{ fontSize: '11px' }}>
-                      Return to send • Shift + Return for new line
+                    <span className="text-muted text-[11px] hidden sm:inline">
+                      Return to send • Shift + Return for newline
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-sm">
+                  <div className="flex items-center gap-2">
+                    {inputVal.trim() && (
+                      <span className="text-[10.5px] text-muted font-mono hidden md:inline">
+                        ~{Math.round(inputVal.length / 4)} tokens
+                      </span>
+                    )}
+
                     <button 
                       onClick={copyProxyUrl} 
-                      className="btn btn-ghost text-mono flex items-center gap-xs text-muted"
-                      style={{ fontSize: '11px', padding: '2px 8px', borderRadius: 'var(--gc-radius-sm)' }}
-                      title="Click to copy local OpenAI proxy endpoint"
+                      className="btn btn-ghost squircle-sm text-mono flex items-center gap-1 text-muted hover:text-[var(--gc-text)]"
+                      style={{ 
+                        fontSize: '11px', 
+                        padding: '3px 8px', 
+                        borderRadius: 'var(--gc-squircle-sm)',
+                        border: '1px solid var(--gc-border)',
+                        background: 'var(--gc-surface-sunken)'
+                      }}
+                      title="Click to copy local OpenAI proxy endpoint (127.0.0.1:11434)"
                     >
                       <LuGlobe size={11} />
                       <span>:11434</span>
@@ -643,7 +785,12 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                       onClick={handleSend} 
                       disabled={!inputVal.trim() || !isConnected}
                       size="sm"
-                      style={{ borderRadius: 'var(--gc-radius-full)', padding: '5px 14px' }}
+                      className="squircle-sm"
+                      style={{ 
+                        borderRadius: 'var(--gc-squircle-sm)',
+                        padding: '5px 14px',
+                        fontSize: '12.5px'
+                      }}
                     >
                       <LuSend size={13} />
                       <span>Send</span>
@@ -655,62 +802,65 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
 
           </div>
 
-          {/* Prompt Studio & Parameters Drawer */}
+          {/* Prompt Studio & Parameters Drawer (G2/G3 Eased Slide-In) */}
           {showStudio && (
             <div className="studio-drawer">
-              <div className="flex items-center justify-between" style={{ padding: 'var(--gc-space-md) var(--gc-space-lg)', borderBottom: '1px solid var(--gc-border)' }}>
-                <div className="flex items-center gap-xs">
+              <div 
+                className="flex items-center justify-between px-4 py-3 border-b shrink-0"
+                style={{ borderColor: 'var(--gc-border)' }}
+              >
+                <div className="flex items-center gap-1.5">
                   <LuSlidersHorizontal size={14} className="text-accent" />
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Prompt Studio</span>
+                  <span className="text-[13px] font-semibold text-[var(--gc-text)]">Prompt Studio</span>
                 </div>
                 <button 
                   onClick={() => setShowStudio(false)} 
-                  className="btn btn-ghost" 
-                  style={{ padding: '2px 4px', border: 'none' }}
+                  className="btn btn-ghost squircle-sm" 
+                  style={{ padding: '4px', border: 'none', borderRadius: 'var(--gc-squircle-sm)' }}
                   title="Close Studio"
                 >
                   <LuX size={15} />
                 </button>
               </div>
 
-              <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--gc-space-lg)' }} className="flex flex-col gap-lg">
+              <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
                 
                 {/* Persona Presets */}
-                <div className="flex flex-col gap-xs">
-                  <div className="flex justify-between items-center" style={{ marginBottom: '4px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} className="text-muted">
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
                       System Persona
                     </label>
                     <Badge variant="info">{selectedPersona.badge}</Badge>
                   </div>
                   
-                  <div className="flex flex-col gap-xs">
+                  <div className="flex flex-col gap-1.5">
                     {PERSONA_PRESETS.map((p) => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => setSelectedPersona(p)}
-                        className="btn btn-ghost flex flex-col items-start"
+                        className="btn btn-ghost squircle-md flex flex-col items-start transition-all"
                         style={{
                           textAlign: 'left',
-                          padding: '10px 12px',
-                          borderRadius: 'var(--gc-radius-md)',
-                          background: selectedPersona.id === p.id ? 'var(--gc-surface)' : 'rgba(255, 255, 255, 0.02)',
+                          padding: '8px 11px',
+                          borderRadius: 'var(--gc-squircle-md)',
+                          background: selectedPersona.id === p.id ? 'var(--gc-surface-elevated)' : 'var(--gc-surface-sunken)',
                           border: `1px solid ${selectedPersona.id === p.id ? 'var(--gc-accent)' : 'var(--gc-border)'}`,
-                          boxShadow: selectedPersona.id === p.id ? '0 0 0 2px var(--gc-accent-muted)' : 'none'
+                          boxShadow: selectedPersona.id === p.id ? '0 0 0 1px var(--gc-accent)' : 'none'
                         }}
                       >
-                        <div className="flex justify-between items-center" style={{ width: '100%', marginBottom: '2px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--gc-text)' }}>{p.name}</span>
+                        <div className="flex justify-between items-center w-full mb-0.5">
+                          <span className="text-[12.5px] font-semibold text-[var(--gc-text)]">{p.name}</span>
                           {selectedPersona.id === p.id && <LuCheck size={13} className="text-accent" />}
                         </div>
-                        <span className="text-muted" style={{ fontSize: '11px', lineHeight: 1.3 }}>{p.description}</span>
+                        <span className="text-muted text-[11px] leading-tight">{p.description}</span>
                       </button>
                     ))}
                   </div>
 
                   {/* Custom Persona toggle */}
-                  <div style={{ marginTop: 'var(--gc-space-xs)' }}>
+                  <div className="mt-1">
                     <button
                       type="button"
                       onClick={() => setSelectedPersona({
@@ -721,12 +871,11 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                         systemPrompt: customSystemPrompt,
                         badge: 'Custom'
                       })}
-                      className="btn btn-ghost flex justify-between items-center"
+                      className="btn btn-ghost squircle-sm flex justify-between items-center w-full text-[12px] py-1.5 px-2.5 transition-all"
                       style={{
-                        width: '100%',
-                        fontSize: '12px',
-                        padding: '6px 10px',
-                        border: `1px solid ${selectedPersona.id === 'custom' ? 'var(--gc-accent)' : 'var(--gc-border)'}`
+                        borderRadius: 'var(--gc-squircle-sm)',
+                        border: `1px solid ${selectedPersona.id === 'custom' ? 'var(--gc-accent)' : 'var(--gc-border)'}`,
+                        background: selectedPersona.id === 'custom' ? 'var(--gc-surface-elevated)' : 'transparent'
                       }}
                     >
                       <span>Custom System Directive</span>
@@ -735,23 +884,28 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
 
                     {selectedPersona.id === 'custom' && (
                       <textarea
-                        className="input"
+                        className="input squircle-sm mt-2"
                         placeholder="e.g. Always respond with concise Rust code and benchmark comparisons."
                         value={customSystemPrompt}
                         onChange={(e) => setCustomSystemPrompt(e.target.value)}
-                        style={{ marginTop: '6px', fontSize: '12px', minHeight: '60px' }}
+                        style={{ 
+                          fontSize: '12px', 
+                          minHeight: '65px',
+                          borderRadius: 'var(--gc-squircle-sm)'
+                        }}
                       />
                     )}
                   </div>
                 </div>
 
                 {/* Inference Temperature Slider */}
-                <div className="flex flex-col gap-xs">
+                <div className="flex flex-col gap-1.5 pt-2 border-t" style={{ borderColor: 'var(--gc-border)' }}>
                   <div className="flex justify-between items-center">
-                    <label style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} className="text-muted">
-                      Temperature
+                    <label className="text-[11px] font-bold text-muted uppercase tracking-wider flex items-center gap-1">
+                      <LuFlame size={12} className="text-accent" />
+                      <span>Temperature</span>
                     </label>
-                    <span className="text-mono" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gc-accent)' }}>
+                    <span className="text-mono text-[12px] font-semibold text-accent">
                       {temperature.toFixed(2)}
                     </span>
                   </div>
@@ -763,14 +917,10 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                     step="0.05"
                     value={temperature}
                     onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                    style={{
-                      width: '100%',
-                      accentColor: 'var(--gc-accent)',
-                      cursor: 'pointer'
-                    }}
+                    className="w-full accent-[var(--gc-accent)] cursor-pointer"
                   />
 
-                  <div className="flex justify-between text-muted" style={{ fontSize: '10px' }}>
+                  <div className="flex justify-between text-muted text-[10px]">
                     <span>0.0 (Precise / Code)</span>
                     <span>0.7 (Balanced)</span>
                     <span>1.0 (Creative)</span>
