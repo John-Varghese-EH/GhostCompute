@@ -102,6 +102,11 @@ impl ClientConnection {
 
         // Ensure url has scheme and is sanitized
         let trimmed = url.trim().trim_end_matches('/');
+        if trimmed.starts_with("ghostcompute://") {
+            return Err(ClientError::Transport(
+                "A Cloudflare Tunnel URL or Host LAN IP is required for pairing. Please configure a tunnel or enter host IP directly.".to_string(),
+            ));
+        }
         let mut ws_url = trimmed.to_string();
         if !ws_url.starts_with("ws://") && !ws_url.starts_with("wss://") && !ws_url.starts_with("http://") && !ws_url.starts_with("https://") {
             let is_local = ws_url.starts_with(|c: char| c.is_ascii_digit()) || ws_url.starts_with("localhost");
@@ -283,8 +288,12 @@ impl ClientConnection {
         app: tauri::AppHandle,
     ) -> Result<(), ClientError> {
         // Parse chat request to extract the message
-        let v: serde_json::Value = serde_json::from_slice(payload).unwrap();
-        let message = v.get("message").unwrap().as_str().unwrap().to_string();
+        let v: serde_json::Value = serde_json::from_slice(payload)
+            .map_err(|e| ClientError::Transport(format!("Invalid chat payload: {}", e)))?;
+        let message = v.get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("")
+            .to_string();
         
         // We simulate a proxy chat by forwarding to the local /api/chat instead, 
         // but GhostCompute's Tauri UI still expects "chat-chunk" events!

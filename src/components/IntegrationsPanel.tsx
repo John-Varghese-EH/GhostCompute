@@ -198,14 +198,14 @@ ${settings.api_proxy_key ? `  -H "Authorization: Bearer ${settings.api_proxy_key
     <div className="flex flex-col gap-xl" style={{ maxWidth: '960px', margin: '0 auto' }}>
       
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
           <h2 style={{ fontSize: '20px', fontWeight: 600, letterSpacing: '-0.3px' }}>OpenAI Proxy & Integrations</h2>
           <p className="text-muted" style={{ fontSize: '13px', marginTop: '2px' }}>
             Seamlessly forward any OpenAI-compatible IDE, CLI, or agent to your remote laptop's GPU compute.
           </p>
         </div>
-        <Badge variant={status.running ? 'success' : 'danger'}>
+        <Badge variant={status.running ? 'success' : 'danger'} className="shrink-0">
           {status.running ? 'Proxy Active' : 'Proxy Stopped'}
         </Badge>
       </div>

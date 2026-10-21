@@ -1,8 +1,11 @@
 [package]
 name = "ghost-compute"
 version = "0.1.0"
-description = "Enterprise-Grade Peer-to-Peer Remote Compute Client & Host"
+description = "GhostCompute 👻 - Turn any High-End PC into a Private AI & Automation Cloud Server"
 authors = ["John Varghese (J0X) <https://github.com/John-Varghese-EH>"]
+homepage = "https://github.com/John-Varghese-EH/GhostCompute"
+repository = "https://github.com/John-Varghese-EH/GhostCompute"
+license = "GPL-3.0"
 edition = "2021"
 
 [lib]

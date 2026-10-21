@@ -34,4 +34,12 @@ impl AdmissionGate {
             .await
             .map_err(|_| "Server is shutting down".to_string())
     }
+
+    pub async fn acquire_owned(&self) -> Result<tokio::sync::OwnedSemaphorePermit, String> {
+        self.semaphore
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| "Server is shutting down".to_string())
+    }
 }

@@ -13,6 +13,9 @@ mod server;
 mod settings;
 mod transport;
 pub mod sys_monitor;
+pub mod docker;
+pub mod recipes;
+pub mod orchestrator;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -48,6 +51,7 @@ pub struct AppState {
     pub pairing_link: Arc<Mutex<Option<PairingLink>>>,
     pub settings: Arc<Mutex<SettingsStore>>,
     pub api_proxy: Arc<Mutex<ApiProxyHandle>>,
+    pub orchestrator: Arc<crate::orchestrator::Orchestrator>,
 }
 
 // -- Discovery commands --
@@ -297,13 +301,14 @@ async fn start_hosting(
     let peer_store = state.peer_store.clone();
     let noise_priv = state.identity.noise_private;
     let settings = state.settings.lock().await.get();
+    let port = settings.host_port;
     let gate = Arc::new(crate::admission::AdmissionGate::new(&settings));
     let cf_token = settings.cloudflare_token.clone();
 
     server
         .start(
             noise_priv,
-            crate::discovery::DEFAULT_PORT,
+            port,
             peer_store,
             cf_token,
             gate,
@@ -318,7 +323,7 @@ async fn start_hosting(
         *mdns_lock = Some(handle);
     }
     if let Some(mdns) = mdns_lock.as_mut() {
-        let _ = mdns.start_advertising(state.identity.peer_id().as_str(), "GhostCompute", crate::discovery::DEFAULT_PORT);
+        let _ = mdns.start_advertising(state.identity.peer_id().as_str(), "GhostCompute", port);
     }
 
     Ok(())
@@ -623,6 +628,98 @@ fn get_local_ip() -> Result<String, String> {
     Ok("127.0.0.1".to_string())
 }
 
+// -- Docker & Hardware Telemetry commands --
+
+#[tauri::command]
+async fn get_docker_status() -> Result<crate::docker::DockerStatus, String> {
+    Ok(crate::docker::DockerManager::check_status().await)
+}
+
+#[tauri::command]
+async fn detect_gpu_hardware() -> Result<crate::docker::GpuInfo, String> {
+    Ok(crate::docker::DockerManager::detect_gpu().await)
+}
+
+// -- Service Orchestrator (16-tool Catalog) commands --
+
+#[tauri::command]
+async fn list_recipes(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<crate::recipes::ServiceRecipe>, String> {
+    Ok(state.orchestrator.list_recipes())
+}
+
+#[tauri::command]
+async fn get_service_states(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<crate::recipes::ServiceState>, String> {
+    Ok(state.orchestrator.get_all_states().await)
+}
+
+#[tauri::command]
+async fn install_and_run_service(
+    state: tauri::State<'_, AppState>,
+    recipe_id: String,
+) -> Result<(), String> {
+    state.orchestrator.install_and_run(&recipe_id).await
+}
+
+#[tauri::command]
+async fn stop_service(
+    state: tauri::State<'_, AppState>,
+    recipe_id: String,
+) -> Result<(), String> {
+    state.orchestrator.stop_service(&recipe_id).await
+}
+
+#[tauri::command]
+async fn refresh_service_status(
+    state: tauri::State<'_, AppState>,
+    recipe_id: String,
+) -> Result<crate::recipes::ServiceState, String> {
+    state.orchestrator.refresh_status(&recipe_id).await
+}
+
+#[tauri::command]
+async fn get_service_logs(
+    state: tauri::State<'_, AppState>,
+    recipe_id: String,
+    tail: u32,
+) -> Result<String, String> {
+    state.orchestrator.get_logs(&recipe_id, tail).await
+}
+
+#[tauri::command]
+async fn check_service_health(
+    endpoint: String,
+    timeout_secs: Option<u64>,
+) -> Result<bool, String> {
+    crate::docker::DockerManager::check_service_health(&endpoint, timeout_secs.unwrap_or(3)).await
+}
+
+// -- Multi-User & RBAC commands --
+
+#[tauri::command]
+async fn update_peer_role(
+    state: tauri::State<'_, AppState>,
+    peer_id: String,
+    role: String,
+    rate_limit_rpm: u32,
+) -> Result<(), String> {
+    let store = state.peer_store.lock().await;
+    let r = crate::peer_store::UserRole::from(role.as_str());
+    store.update_role(&peer_id, r, rate_limit_rpm).map_err(|e| format!("{}", e))
+}
+
+#[tauri::command]
+async fn generate_peer_api_token(
+    state: tauri::State<'_, AppState>,
+    peer_id: String,
+) -> Result<String, String> {
+    let store = state.peer_store.lock().await;
+    store.generate_api_token(&peer_id).map_err(|e| format!("{}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -659,6 +756,7 @@ pub fn run() {
                 pairing_link: Arc::new(Mutex::new(None)),
                 settings: Arc::new(Mutex::new(settings_store)),
                 api_proxy: Arc::new(Mutex::new(ApiProxyHandle::new())),
+                orchestrator: Arc::new(crate::orchestrator::Orchestrator::new(data_dir.clone())),
             };
             app.manage(state);
 
@@ -780,6 +878,20 @@ pub fn run() {
             get_api_proxy_status,
             get_host_sys_stats,
             get_local_ip,
+            // Docker & GPU
+            get_docker_status,
+            detect_gpu_hardware,
+            // Orchestrator Catalog
+            list_recipes,
+            get_service_states,
+            install_and_run_service,
+            stop_service,
+            refresh_service_status,
+            get_service_logs,
+            check_service_health,
+            // RBAC
+            update_peer_role,
+            generate_peer_api_token,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run application");

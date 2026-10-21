@@ -23,7 +23,7 @@ import {
   LuGlobe
 } from 'react-icons/lu';
 import { useConnection } from '../hooks/useConnection';
-import { getRemoteModels, getPairedDevices, initiatePairing as invokeInitiatePairing } from '../lib/tauri';
+import { getRemoteModels, getPairedDevices } from '../lib/tauri';
 import { useDiscovery } from '../hooks/useDiscovery';
 import { useChat } from '../hooks/useChat';
 import { Button } from './common/Button';
@@ -33,6 +33,12 @@ import { CodeBlock } from './common/CodeBlock';
 import { PairingPanel } from './PairingPanel';
 import { IntegrationsPanel } from './IntegrationsPanel';
 import { ResourceMonitor } from './ResourceMonitor';
+import { AgentShortcutsPanel } from './AgentShortcutsPanel';
+import { connectToHost } from '../lib/tauri';
+import { LuBot } from 'react-icons/lu';
+import { Logo } from './common/Logo';
+import { ThemeToggle } from './common/ThemeToggle';
+import { CustomSelect } from './common/CustomSelect';
 
 export interface SystemPersona {
   id: string;
@@ -127,7 +133,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
   const [inputVal, setInputVal] = useState('');
   const [remoteModels, setRemoteModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'chat' | 'pairing' | 'integrations' | 'telemetry'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'agents' | 'pairing' | 'integrations' | 'telemetry'>('chat');
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [copiedProxy, setCopiedProxy] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
@@ -160,7 +166,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
     if (!isConnected && !isConnecting && pairedDeviceIds.length > 0) {
       const match = discoveredPeers.find(p => pairedDeviceIds.includes(p.peer_id));
       if (match) {
-        invokeInitiatePairing(match.peer_id).catch(console.error);
+        connectToHost(match.peer_id).catch(console.error);
       }
     }
   }, [discoveredPeers, pairedDeviceIds, isConnected, isConnecting]);
@@ -292,8 +298,13 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
     <div className="flex flex-col" style={{ height: '100vh', width: '100vw', background: 'var(--gc-bg)' }}>
       
       {/* Top bar */}
-      <div className="flex items-center justify-between" style={{ padding: '12px 20px', background: 'rgba(15, 15, 18, 0.85)', backdropFilter: 'var(--gc-glass)', WebkitBackdropFilter: 'var(--gc-glass)', borderBottom: '1px solid var(--gc-border)' }}>
+      <div className="flex items-center justify-between" style={{ padding: '12px 20px', background: 'var(--gc-surface)', backdropFilter: 'var(--gc-glass)', WebkitBackdropFilter: 'var(--gc-glass)', borderBottom: '1px solid var(--gc-border)' }}>
         <div className="flex items-center gap-md">
+          <div className="flex items-center gap-2 pr-2 border-r border-[var(--gc-border)]">
+            <Logo size={22} className="text-accent" />
+            <span className="font-bold text-sm tracking-tight text-[var(--gc-text)] hidden sm:inline">GhostCompute</span>
+          </div>
+
           <div className="flex flex-col">
             <span style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '-0.01em' }}>Host Compute Node</span>
             <div className="flex items-center gap-xs">
@@ -303,7 +314,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
               </span>
             </div>
           </div>
-          <Badge variant="info">
+          <Badge variant="info" className="shrink-0">
             <span className="flex items-center gap-xs">
               {isConnected ? <LuWifi size={11} /> : <LuWifiOff size={11} />}
               {isConnected ? 'Active Peer' : 'Offline'}
@@ -330,6 +341,13 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
             >
               <LuMessageSquare size={13} />
               <span>Chat</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('agents')}
+              className={`segmented-item ${activeTab === 'agents' ? 'active' : ''}`}
+            >
+              <LuBot size={13} />
+              <span>Agents & Shortcuts</span>
             </button>
             <button
               onClick={() => setActiveTab('pairing')}
@@ -371,19 +389,20 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
             </button>
           )}
           
-          <select 
-            className="input" 
-            style={{ width: '150px', padding: '5px 8px', height: 'auto', fontSize: '13px' }} 
-            value={selectedModel} 
-            onChange={e => setSelectedModel(e.target.value)} 
-            disabled={!isConnected || remoteModels.length === 0}
-          >
-            {remoteModels.length > 0 ? remoteModels.map(m => (
-              <option key={m} value={m}>{m}</option>
-            )) : (
-              <option value="">No models</option>
-            )}
-          </select>
+          <div style={{ width: '180px' }}>
+            <CustomSelect
+              value={selectedModel}
+              onChange={val => setSelectedModel(val)}
+              disabled={!isConnected || remoteModels.length === 0}
+              placeholder={remoteModels.length === 0 ? "No models" : "Select model"}
+              options={remoteModels.map(m => ({
+                value: m,
+                label: m,
+                description: 'Host GPU Model'
+              }))}
+            />
+          </div>
+          <ThemeToggle size="sm" />
           <Button variant="danger" size="sm" onClick={disconnect} disabled={!isConnected}>Disconnect</Button>
           <Button variant="ghost" size="sm" onClick={onResetRole} disabled={isConnected}>Change Role</Button>
         </div>
@@ -790,6 +809,13 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
             </div>
           )}
 
+        </div>
+      ) : activeTab === 'agents' ? (
+        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--gc-space-xl)' }}>
+          <AgentShortcutsPanel
+            isConnected={isConnected}
+            onNavigatePairing={() => setActiveTab('pairing')}
+          />
         </div>
       ) : activeTab === 'pairing' ? (
         <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--gc-space-xl)', display: 'flex', justifyContent: 'center' }}>

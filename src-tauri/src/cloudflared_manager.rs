@@ -27,6 +27,17 @@ pub async fn ensure_cloudflared(app_handle: &AppHandle) -> Result<PathBuf, Strin
         "cloudflared"
     };
 
+    // Check if cloudflared is already installed on the host system PATH
+    let path_check = std::process::Command::new(binary_name)
+        .arg("version")
+        .output();
+    if let Ok(output) = path_check {
+        if output.status.success() {
+            log::info!("Found cloudflared on system PATH.");
+            return Ok(PathBuf::from(binary_name));
+        }
+    }
+
     let binary_path = local_data_dir.join(binary_name);
 
     if binary_path.exists() {

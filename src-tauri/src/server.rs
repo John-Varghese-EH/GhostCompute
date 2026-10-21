@@ -144,13 +144,6 @@ impl HostServer {
                                                                         continue;
                                                                     }
 
-                                                                    let permit = match admission_gate.acquire().await {
-                                                                        Ok(p) => p,
-                                                                        Err(e) => {
-                                                                            let _ = tx_out.send(format!("{{\"error\": \"{}\", \"done\": true}}", e).into_bytes()).await;
-                                                                            continue;
-                                                                        }
-                                                                    };
 
                                                                     if let Ok(parsed) = serde_json::from_slice::<serde_json::Value>(&payload) {
                                                                         use tauri::Manager;
@@ -239,6 +232,13 @@ impl HostServer {
                                                                         }
 
                                                                         if !is_trusted {
+                                                                            let store_guard = store.lock().await;
+                                                                            if store_guard.is_trusted(&peer_id).unwrap_or(false) {
+                                                                                is_trusted = true;
+                                                                            }
+                                                                        }
+
+                                                                        if !is_trusted {
                                                                             log::warn!("Rejected untrusted peer message from: {}", peer_id);
                                                                             let _ = tx_out.send(b"{\"error\":\"Not paired\",\"done\":true}".to_vec()).await;
                                                                             break;
@@ -257,7 +257,9 @@ impl HostServer {
                                                                         if action == "http_proxy" {
                                                                             if let Ok(proxy_req) = serde_json::from_value::<HttpProxyRequest>(parsed) {
                                                                                 let tx_out_clone = tx_out.clone();
+                                                                                let owned_permit = admission_gate.acquire_owned().await.ok();
                                                                                 tokio::spawn(async move {
+                                                                                    let _held_permit = owned_permit;
                                                                                     let target_url = format!("http://127.0.0.1:11434{}", proxy_req.path);
                                                                                 
                                                                                 let client = reqwest::Client::new();
@@ -347,7 +349,6 @@ impl HostServer {
                                                                             }
                                                                         }
                                                                     }
-                                                                    drop(permit);
                                                                 }
                                                                 Err(_) => break,
                                                             }
@@ -377,39 +378,69 @@ impl HostServer {
         self.listener_task = Some(task);
         self.shutdown_tx = Some(shutdown_tx);
 
-        if let Some(token) = cf_token {
-            if !token.trim().is_empty() {
-                log::info!("Ensuring cloudflared binary is available...");
-
-                // Get the local binary path, downloading if necessary
-                let cf_bin = crate::cloudflared_manager::ensure_cloudflared(&app_handle)
-                    .await
-                    .map_err(|e| ServerError::Io(std::io::Error::other(e)))?;
-
-                log::info!("Spawning cloudflared tunnel using {:?}", cf_bin);
-                let mut cmd = Command::new(&cf_bin);
+        // Ensure cloudflared is available
+        let cf_bin_res = crate::cloudflared_manager::ensure_cloudflared(&app_handle).await;
+        if let Ok(cf_bin) = cf_bin_res {
+            let mut cmd = Command::new(&cf_bin);
+            
+            if let Some(token) = cf_token {
+                if !token.trim().is_empty() {
+                    log::info!("Spawning managed token tunnel via {:?}", cf_bin);
+                    cmd.arg("tunnel")
+                        .arg("--no-autoupdate")
+                        .arg("run")
+                        .arg("--token")
+                        .arg(token);
+                } else {
+                    log::info!("Spawning zero-config quick tunnel for port {}...", port);
+                    cmd.arg("tunnel")
+                        .arg("--no-autoupdate")
+                        .arg("--url")
+                        .arg(format!("http://localhost:{}", port));
+                }
+            } else {
+                log::info!("Spawning zero-config quick tunnel for port {}...", port);
                 cmd.arg("tunnel")
                     .arg("--no-autoupdate")
-                    .arg("run")
-                    .arg("--token")
-                    .arg(token)
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null());
+                    .arg("--url")
+                    .arg(format!("http://localhost:{}", port));
+            }
 
-                #[cfg(target_os = "windows")]
-                {
-                    use std::os::windows::process::CommandExt;
-                    cmd.creation_flags(0x08000000);
+            cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                cmd.creation_flags(0x08000000);
+            }
+
+            match cmd.spawn() {
+                Ok(mut child) => {
+                    // Read stderr asynchronously to capture generated trycloudflare.com URL
+                    if let Some(stderr) = child.stderr.take() {
+                        use tokio::io::{AsyncBufReadExt, BufReader};
+                        let app_handle_clone = app_handle.clone();
+                        tokio::spawn(async move {
+                            let reader = BufReader::new(stderr);
+                            let mut lines = reader.lines();
+                            while let Ok(Some(line)) = lines.next_line().await {
+                                if line.contains(".trycloudflare.com") {
+                                    for word in line.split_whitespace() {
+                                        if word.starts_with("https://") && word.contains(".trycloudflare.com") {
+                                            log::info!("Extracted Quick Tunnel URL: {}", word);
+                                            let _ = app_handle_clone.emit("tunnel-url-ready", word.to_string());
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    self.cloudflared_process = Some(child);
+                    log::info!("Cloudflared tunnel spawned successfully.");
                 }
-
-                match cmd.spawn() {
-                    Ok(child) => {
-                        self.cloudflared_process = Some(child);
-                        log::info!("Cloudflared tunnel spawned successfully.");
-                    }
-                    Err(e) => {
-                        log::error!("Failed to spawn cloudflared: {}", e);
-                    }
+                Err(e) => {
+                    log::error!("Failed to spawn cloudflared: {}", e);
                 }
             }
         }

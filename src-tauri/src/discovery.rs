@@ -6,6 +6,7 @@ use thiserror::Error;
 use tokio::sync::mpsc;
 
 pub const SERVICE_TYPE: &str = "_ghostcompute._tcp.local.";
+#[allow(dead_code)]
 pub const DEFAULT_PORT: u16 = 8384;
 
 #[derive(Debug, Error)]
@@ -38,6 +39,7 @@ pub enum DiscoveryEvent {
 pub struct MdnsHandle {
     daemon: ServiceDaemon,
     service_fullname: Option<String>,
+    is_browsing: bool,
 }
 
 impl MdnsHandle {
@@ -46,6 +48,7 @@ impl MdnsHandle {
         Ok(Self {
             daemon,
             service_fullname: None,
+            is_browsing: false,
         })
     }
 
@@ -90,10 +93,11 @@ impl MdnsHandle {
     }
 
     pub fn browse_peers(
-        &self,
+        &mut self,
         own_peer_id: String,
     ) -> Result<mpsc::Receiver<DiscoveryEvent>, DiscoveryError> {
         let receiver = self.daemon.browse(SERVICE_TYPE)?;
+        self.is_browsing = true;
         let (tx, rx) = mpsc::channel(32);
 
         thread::spawn(move || {
@@ -146,8 +150,29 @@ impl MdnsHandle {
         Ok(rx)
     }
 
-    pub fn shutdown(self) -> Result<(), DiscoveryError> {
-        self.daemon.shutdown()?;
+    pub fn stop_browsing(&mut self) -> Result<(), DiscoveryError> {
+        if self.is_browsing {
+            let _ = self.daemon.stop_browse(SERVICE_TYPE);
+            self.is_browsing = false;
+        }
         Ok(())
+    }
+
+    pub fn shutdown(mut self) -> Result<(), DiscoveryError> {
+        let _ = self.stop_advertising();
+        let _ = self.stop_browsing();
+        if let Ok(resp_rx) = self.daemon.shutdown() {
+            // Keep the response receiver alive until the daemon acknowledges exit,
+            // preventing the "sending on a closed channel" error in mdns_sd thread.
+            let _ = resp_rx.recv_timeout(std::time::Duration::from_millis(500));
+        }
+        Ok(())
+    }
+}
+
+impl Drop for MdnsHandle {
+    fn drop(&mut self) {
+        let _ = self.stop_advertising();
+        let _ = self.stop_browsing();
     }
 }

@@ -1,9 +1,6 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { listen as tauriListen, EventCallback, UnlistenFn } from '@tauri-apps/api/event';
 
-// We let the Tauri core API handle IPC routing, as checking window variables
-// is unreliable across different OS webviews in Tauri v2.
-
 async function safeInvoke<T>(cmd: string, args?: any): Promise<T> {
   return tauriInvoke<T>(cmd, args);
 }
@@ -12,8 +9,7 @@ export async function safeListen<T>(event: string, handler: EventCallback<T>): P
   return tauriListen<T>(event, handler);
 }
 
-
-// Types matching Rust backend structs (snake_case from serde serialization)
+// Types matching Rust backend structs
 
 export interface DiscoveredPeer {
   peer_id: string;
@@ -22,6 +18,8 @@ export interface DiscoveredPeer {
   port: number;
 }
 
+export type UserRole = 'admin' | 'developer' | 'viewer';
+
 export interface TrustedPeer {
   peer_id: string;
   device_name: string;
@@ -29,6 +27,9 @@ export interface TrustedPeer {
   paired_at: string;
   last_seen: string | null;
   revoked: boolean;
+  role: UserRole;
+  api_token?: string | null;
+  rate_limit_rpm: number;
 }
 
 export type ConnectionStatus =
@@ -98,6 +99,97 @@ export interface IdentityInfo {
   device_name: string;
 }
 
+export interface SystemStats {
+  cpu_usage_percent: number;
+  total_memory_mb: number;
+  used_memory_mb: number;
+  total_swap_mb: number;
+  used_swap_mb: number;
+  uptime_seconds: number;
+  os_name: string;
+  host_name: string;
+  gpu_name?: string | null;
+  gpu_vram_total_mb?: number | null;
+  gpu_vram_used_mb?: number | null;
+  gpu_temp_celsius?: number | null;
+}
+
+// Docker & Hardware
+export interface DockerStatus {
+  installed: boolean;
+  running: boolean;
+  version: string | null;
+  compose_available: boolean;
+}
+
+export interface GpuInfo {
+  vendor: string;
+  name: string;
+  vram_mb: number;
+  driver_version?: string | null;
+  cuda_version?: string | null;
+  nvidia_docker: boolean;
+}
+
+// Service Recipes (16 tools)
+export type ToolCategory =
+  | 'llm_engine'
+  | 'ai_chat'
+  | 'media_generation'
+  | 'workflow_automation'
+  | 'coding_assistant';
+
+export type DeploymentMethod = 'docker_compose' | 'native_binary' | 'docker_run';
+
+export interface ExposedPort {
+  container_port: number;
+  host_port: number;
+  protocol: string;
+  description: string;
+}
+
+export interface ServiceRecipe {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  category: ToolCategory;
+  deployment: DeploymentMethod;
+  docker_image?: string | null;
+  ports: ExposedPort[];
+  gpu: {
+    required: boolean;
+    recommended_vram_mb: number;
+    nvidia_runtime: boolean;
+    rocm_support: boolean;
+  };
+  depends_on: string[];
+  web_ui: boolean;
+  web_ui_path?: string | null;
+  documentation_url: string;
+}
+
+export type ServiceStatus =
+  | 'not_installed'
+  | 'installed'
+  | 'starting'
+  | 'running'
+  | 'stopping'
+  | 'stopped'
+  | 'error'
+  | 'updating';
+
+export interface ServiceState {
+  recipe_id: string;
+  status: ServiceStatus;
+  container_id?: string | null;
+  tunnel_url?: string | null;
+  last_health_check?: string | null;
+  error_message?: string | null;
+  installed_at?: string | null;
+  started_at?: string | null;
+}
+
 // Discovery
 export const getDiscoveredPeers = () => safeInvoke<DiscoveredPeer[]>('get_discovered_peers');
 export const startDiscovery = () => safeInvoke<void>('start_discovery');
@@ -112,10 +204,14 @@ export const generatePairingLink = () => safeInvoke<string>('generate_pairing_li
 export const connectToUrl = (url: string) => safeInvoke<void>('connect_to_url', { url });
 export const getPairingState = () => safeInvoke<PairingState>('get_pairing_state');
 
-// Devices
+// Devices & RBAC
 export const getPairedDevices = () => safeInvoke<TrustedPeer[]>('get_paired_devices');
 export const revokeDevice = (peer_id: string) => safeInvoke<void>('revoke_device', { peer_id });
 export const removeDevice = (peer_id: string) => safeInvoke<void>('remove_device', { peer_id });
+export const updatePeerRole = (peer_id: string, role: string, rate_limit_rpm: number) =>
+  safeInvoke<void>('update_peer_role', { peer_id, role, rate_limit_rpm });
+export const generatePeerApiToken = (peer_id: string) =>
+  safeInvoke<string>('generate_peer_api_token', { peer_id });
 
 // Connection
 export const connectToHost = (peer_id: string) => safeInvoke<void>('connect_to_host', { peer_id });
@@ -144,7 +240,7 @@ export const getIdentityInfo = () => safeInvoke<IdentityInfo>('get_identity_info
 export const getSettings = () => safeInvoke<AppSettings>('get_settings');
 export const saveSettings = (settings: AppSettings) => safeInvoke<void>('save_settings', { settings });
 
-// API Proxy
+// API Proxy & Telemetry
 export interface ApiProxyStatus {
   running: boolean;
   port: number;
@@ -154,6 +250,25 @@ export interface ApiProxyStatus {
 export const startApiProxy = () => safeInvoke<void>('start_api_proxy');
 export const stopApiProxy = () => safeInvoke<void>('stop_api_proxy');
 export const getApiProxyStatus = () => safeInvoke<ApiProxyStatus>('get_api_proxy_status');
+export const getHostSysStats = () => safeInvoke<SystemStats>('get_host_sys_stats');
 export const getLocalIp = () => safeInvoke<string>('get_local_ip');
+
+// Docker & GPU
+export const getDockerStatus = () => safeInvoke<DockerStatus>('get_docker_status');
+export const detectGpuHardware = () => safeInvoke<GpuInfo>('detect_gpu_hardware');
+
+// Orchestrator Catalog (16 tools)
+export const listRecipes = () => safeInvoke<ServiceRecipe[]>('list_recipes');
+export const getServiceStates = () => safeInvoke<ServiceState[]>('get_service_states');
+export const installAndRunService = (recipe_id: string) =>
+  safeInvoke<void>('install_and_run_service', { recipe_id });
+export const stopService = (recipe_id: string) =>
+  safeInvoke<void>('stop_service', { recipe_id });
+export const refreshServiceStatus = (recipe_id: string) =>
+  safeInvoke<ServiceState>('refresh_service_status', { recipe_id });
+export const getServiceLogs = (recipe_id: string, tail: number = 100) =>
+  safeInvoke<string>('get_service_logs', { recipe_id, tail });
+export const checkServiceHealth = (endpoint: string, timeout_secs: number = 3) =>
+  safeInvoke<boolean>('check_service_health', { endpoint, timeout_secs });
 
 export const isTauri = true;

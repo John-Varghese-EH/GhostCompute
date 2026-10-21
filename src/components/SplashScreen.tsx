@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Logo } from './common/Logo';
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -46,7 +45,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
           gap: '28px'
         }}
       >
-        <Logo size={64} className="text-accent" />
+        <img 
+          src="/logo.svg" 
+          alt="GhostCompute 👻" 
+          className="w-20 h-20 object-contain drop-shadow-[0_0_36px_rgba(139,92,246,0.65)] select-none" 
+        />
         <h1 style={{ 
           fontSize: '22px', 
           fontWeight: 500, 
