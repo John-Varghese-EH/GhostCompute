@@ -1,9 +1,9 @@
 <div align="center">
-  <img src="public/logo.svg" alt="GhostCompute Logo" width="160" height="160" />
+  <img src="public/logo.svg" alt="GhostCompute Logo" width="140" height="140" />
   
   # GhostCompute
-  
-  **Turn any High-End PC into a Private, Zero-Trust AI & Automation Cloud Server**
+
+  ### Turn your high-end gaming PC into a private AI cloud server accessible from any laptop.
 
   [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
   [![Built with Tauri v2](https://img.shields.io/badge/Built_with-Tauri_v2-24c8db.svg)](https://tauri.app/)
@@ -11,19 +11,43 @@
   [![Backend Rust](https://img.shields.io/badge/Backend-Rust_Async-dea584.svg)](https://www.rust-lang.org/)
   [![Security Noise Protocol](https://img.shields.io/badge/Tunnel-Cloudflare_+_Noise_XX-f38020.svg)](https://www.cloudflare.com/)
 
-  *Enterprise-Grade Open-Source Desktop and Daemon Architecture*
+  <br />
+
+  <p align="center">
+    <b>Stop paying monthly cloud GPU subscriptions.</b><br />
+    Harness the full power of your home workstation's RTX or Radeon GPU while sitting on a coffee shop couch with a MacBook or lightweight ultrabook.
+  </p>
+
+  <br />
+
+  <img src="docs/screenshots/GhostCompute-01.png" alt="GhostCompute Mode Selection Screen" width="900" style="border-radius: 12px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);" />
+
 </div>
 
 ---
 
-## Executive Summary
+## The Problem GhostCompute Solves
 
-GhostCompute transforms any high-end gaming PC or GPU workstation into a secure, self-hosted AI compute server accessible from any lightweight laptop (MacBook, thin client, or travel machine) across local networks (LAN) or over the internet (WAN).
+High-performance AI inference and heavy generative models require substantial dedicated VRAM. But carrying a 6-pound gaming laptop with loud fans and a 2-hour battery life is painful, and renting cloud GPUs costs hundreds of dollars every month while exposing your proprietary code and private conversations to external cloud providers.
 
-The platform operates as a single unified binary supporting two distinct runtime modes:
+**GhostCompute gives you the best of both worlds:**
+1. **Zero Cloud Costs:** Run 70B LLMs, ComfyUI pipelines, and AI agent workflows completely on the GPU hardware you already own.
+2. **Infinite Portability:** Code and chat on a sleek, silent, battery-efficient laptop anywhere in the world.
+3. **Drop-in Developer Compatibility:** Seamlessly routes local AI coding tools (Claude Code, Cursor, Continue, Antigravity) through a silent background proxy daemon without changing a single line of your workflow.
+4. **Zero-Trust Security:** Built on Noise-XX handshake cryptography (ChaCha20-Poly1305 + Curve25519) and zero-config Cloudflare Tunnels with no open router ports or static IP requirements.
 
-- **Server Mode (Host):** Manages bare-metal GPU acceleration (NVIDIA CUDA, AMD ROCm, Apple Metal), runs an automated service catalog orchestrating 16 open-source AI applications, enforces multi-user role-based access control (RBAC), and provides zero-trust remote tunneling via Cloudflare or Pinggy.
-- **Client Mode (Consumer):** Runs a silent background proxy daemon on `127.0.0.1:11434`, automatically configures developer tools (Claude Code, Cursor, Antigravity, Continue), and provides live connection-aware shortcuts to remote host services.
+---
+
+## How It Works: Two Modes, One Binary
+
+GhostCompute compiles into a single, lightning-fast native binary that runs in either of two modes:
+
+| | 🖥️ Server Mode (Host) | 💻 Client Mode (Consumer) |
+|:---|:---|:---|
+| **Where it runs** | Your GPU Workstation / Gaming PC at home or the office | Your MacBook, ThinkPad, Chromebook, or travel ultrabook |
+| **What it does** | Drives bare-metal GPU inference, manages 16 open-source AI containers, and orchestrates encrypted tunnels | Silently forwards requests on `127.0.0.1:11434` to your home rig with sub-millisecond local proxy latency |
+| **Integrations** | Ollama, LM Studio, ComfyUI, Open WebUI, n8n, Tabby, Dify | Claude Code, Cursor, Antigravity IDE, Continue, Web Browsers |
+| **Connection** | Zero-config Cloudflare Quick Tunnel or instant LAN mDNS | One-click pairing with Short Authentication String (SAS) verification |
 
 ---
 
