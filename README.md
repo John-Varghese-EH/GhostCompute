@@ -15,7 +15,7 @@
 
   <p align="center">
     <b>Stop paying monthly cloud GPU subscriptions.</b><br />
-    Harness the full power of your home workstation's RTX or Radeon GPU while sitting on a coffee shop couch with a MacBook or lightweight ultrabook.
+    Harness the full power of your home workstation, your own gaming PC, or a friend's GPU rig (with mutual consent) while coding from a coffee shop with a lightweight MacBook or ultrabook.
   </p>
 
   <br />
@@ -33,8 +33,9 @@ High-performance AI inference and heavy generative models require substantial de
 **GhostCompute gives you the best of both worlds:**
 1. **Zero Cloud Costs:** Run 70B LLMs, ComfyUI pipelines, and AI agent workflows completely on the GPU hardware you already own.
 2. **Infinite Portability:** Code and chat on a sleek, silent, battery-efficient laptop anywhere in the world.
-3. **Drop-in Developer Compatibility:** Seamlessly routes local AI coding tools (Claude Code, Cursor, Continue, Antigravity) through a silent background proxy daemon without changing a single line of your workflow.
-4. **Zero-Trust Security:** Built on Noise-XX handshake cryptography (ChaCha20-Poly1305 + Curve25519) and zero-config Cloudflare Tunnels with no open router ports or static IP requirements.
+3. **Share Hardware with Consent (Host PC or Friend's Gaming Laptop):** Turn any idle gaming PC, workstation, or a friend's idle GPU laptop into a shared private node with cryptographic consent, Short Authentication String (SAS) confirmation, and revocable RBAC access tokens.
+4. **Drop-in Developer Compatibility:** Seamlessly routes local AI coding tools (Claude Code, Cursor, Continue, Antigravity) through a silent background proxy daemon without changing a single line of your workflow.
+5. **Zero-Trust Security:** Built on Noise-XX handshake cryptography (ChaCha20-Poly1305 + Curve25519) and zero-config Cloudflare Tunnels with no open router ports or static IP requirements.
 
 ---
 
@@ -44,8 +45,8 @@ GhostCompute compiles into a single, lightning-fast native binary that runs in e
 
 | | 🖥️ Server Mode (Host) | 💻 Client Mode (Consumer) |
 |:---|:---|:---|
-| **Where it runs** | Your GPU Workstation / Gaming PC at home or the office | Your MacBook, ThinkPad, Chromebook, or travel ultrabook |
-| **What it does** | Drives bare-metal GPU inference, manages 16 open-source AI containers, and orchestrates encrypted tunnels | Silently forwards requests on `127.0.0.1:11434` to your home rig with sub-millisecond local proxy latency |
+| **Where it runs** | Your GPU Workstation, Gaming PC, or a Friend's GPU Laptop (with host consent) | Your MacBook, ThinkPad, Chromebook, or travel ultrabook |
+| **What it does** | Drives bare-metal GPU inference, manages 16 open-source AI containers, and orchestrates encrypted tunnels | Silently forwards requests on `127.0.0.1:11434` to your remote GPU rig with sub-millisecond local proxy latency |
 | **Integrations** | Ollama, LM Studio, ComfyUI, Open WebUI, n8n, Tabby, Dify | Claude Code, Cursor, Antigravity IDE, Continue, Web Browsers |
 | **Connection** | Zero-config Cloudflare Quick Tunnel or instant LAN mDNS | One-click pairing with Short Authentication String (SAS) verification |
 
