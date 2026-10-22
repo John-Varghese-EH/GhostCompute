@@ -190,14 +190,17 @@ impl DockerManager {
 
     /// List all containers (running and stopped)
     pub async fn list_containers() -> Result<Vec<ContainerInfo>, String> {
-        let output = Command::new("docker")
+        let output = match Command::new("docker")
             .args(["ps", "-a", "--format", "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.State}}\t{{.Status}}\t{{.Ports}}"])
             .output()
             .await
-            .map_err(|e| format!("Failed to run docker ps: {}", e))?;
+        {
+            Ok(o) => o,
+            Err(_) => return Ok(vec![]),
+        };
 
         if !output.status.success() {
-            return Err(String::from_utf8_lossy(&output.stderr).to_string());
+            return Ok(vec![]);
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -414,11 +417,14 @@ impl DockerManager {
 
     /// Check if a specific container exists and get its status
     pub async fn inspect_container(name_or_id: &str) -> Result<Option<ContainerInfo>, String> {
-        let output = Command::new("docker")
+        let output = match Command::new("docker")
             .args(["inspect", "--format", "{{.Id}}\t{{.Name}}\t{{.Config.Image}}\t{{.State.Status}}\t{{.State.Status}}", name_or_id])
             .output()
             .await
-            .map_err(|e| format!("Failed to inspect container: {}", e))?;
+        {
+            Ok(o) => o,
+            Err(_) => return Ok(None),
+        };
 
         if !output.status.success() {
             return Ok(None);

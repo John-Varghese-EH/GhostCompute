@@ -13,6 +13,8 @@ import {
 export function useOllama() {
   const [status, setStatus] = useState<OllamaStatus>('NotInstalled');
   const [models, setModels] = useState<ModelInfo[]>([]);
+  const [pullProgress, setPullProgress] = useState<PullProgress | null>(null);
+  const [isPulling, setIsPulling] = useState<boolean>(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -34,10 +36,14 @@ export function useOllama() {
 
   useEffect(() => {
     const unlisten = safeListen<PullProgress>('pull-progress', (event) => {
-      console.log('Pull progress:', event.payload);
-      
-      const { completed, total, status } = event.payload;
-      if (status === 'success' || (completed !== null && total !== null && total > 0 && completed >= total)) {
+      const progress = event.payload;
+      setPullProgress(progress);
+      setIsPulling(true);
+
+      const { completed, total, status: pStatus } = progress;
+      if (pStatus === 'success' || (completed !== null && total !== null && total > 0 && completed >= total)) {
+        setIsPulling(false);
+        setPullProgress(null);
         refresh();
       }
     });
@@ -49,19 +55,24 @@ export function useOllama() {
 
   const pullModel = useCallback(async (modelName: string) => {
     try {
+      setIsPulling(true);
+      setPullProgress({ status: `Initiating download of ${modelName}...`, completed: null, total: null });
       await invokePullModel(modelName);
     } catch (err) {
       console.error('Failed to pull model:', err);
+      setIsPulling(false);
+      setPullProgress(null);
     }
   }, []);
 
   const swapModel = useCallback(async (modelName: string) => {
     try {
       await invokeSwapModel(modelName);
+      await refresh();
     } catch (err) {
       console.error('Failed to swap model:', err);
     }
-  }, []);
+  }, [refresh]);
 
-  return { status, models, pullModel, swapModel, refresh };
+  return { status, models, pullModel, swapModel, refresh, pullProgress, isPulling };
 }

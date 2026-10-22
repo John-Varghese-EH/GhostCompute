@@ -1,11 +1,82 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { listen as tauriListen, EventCallback, UnlistenFn } from '@tauri-apps/api/event';
 
+export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+function toCamelCase(str: string): string {
+  return str.replace(/_([a-z0-9])/g, (_, char) => char.toUpperCase());
+}
+
+function toSnakeCase(str: string): string {
+  return str.replace(/([A-Z])/g, '_$1').toLowerCase();
+}
+
+function normalizeArgs(args?: any): any {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return args;
+  }
+  const result: Record<string, any> = { ...args };
+  for (const [key, value] of Object.entries(args)) {
+    const camel = toCamelCase(key);
+    if (!(camel in result)) {
+      result[camel] = value;
+    }
+    const snake = toSnakeCase(key);
+    if (!(snake in result)) {
+      result[snake] = value;
+    }
+  }
+  return result;
+}
+
 async function safeInvoke<T>(cmd: string, args?: any): Promise<T> {
-  return tauriInvoke<T>(cmd, args);
+  const normArgs = normalizeArgs(args);
+  if (!isTauri) {
+    console.warn(`[GhostCompute Web Preview] Mocking IPC invoke for: ${cmd}`);
+    // Provide sensible mocks for browser view
+    if (cmd === 'get_connection_status') {
+      return { Disconnected: null } as unknown as T;
+    }
+    if (cmd === 'is_hosting') {
+      return false as unknown as T;
+    }
+    if (cmd === 'get_discovered_peers' || cmd === 'get_paired_devices') {
+      return [] as unknown as T;
+    }
+    if (cmd === 'get_local_ip') {
+      return '127.0.0.1' as unknown as T;
+    }
+    if (cmd === 'get_active_tunnel_url') {
+      return null as unknown as T;
+    }
+    if (cmd === 'get_settings') {
+      return {
+        cloudflare_token: null,
+        cloudflare_tunnel_url: null,
+        gemini_api_key: null,
+        groq_api_key: null,
+        host_port: 8384,
+        auto_start_hosting: false,
+        default_model: null,
+        max_concurrent_requests: 4,
+        max_payload_bytes: 52428800,
+        max_context_tokens: 8192,
+        compression_enabled: true,
+        strip_credentials: true,
+        api_proxy_enabled: false,
+        api_proxy_port: 11434,
+        api_proxy_key: null,
+      } as unknown as T;
+    }
+    return undefined as unknown as T;
+  }
+  return tauriInvoke<T>(cmd, normArgs);
 }
 
 export async function safeListen<T>(event: string, handler: EventCallback<T>): Promise<UnlistenFn> {
+  if (!isTauri) {
+    return () => {};
+  }
   return tauriListen<T>(event, handler);
 }
 
@@ -216,7 +287,8 @@ export const generatePeerApiToken = (peer_id: string) =>
 // Connection
 export const connectToHost = (peer_id: string) => safeInvoke<void>('connect_to_host', { peer_id });
 export const disconnectFromHost = () => safeInvoke<void>('disconnect_from_host');
-export const sendChatMessage = (message: string) => safeInvoke<void>('send_chat_message', { message });
+export const sendChatMessage = (message: string, model?: string) =>
+  safeInvoke<void>('send_chat_message', { message, model });
 export const getConnectionStatus = () => safeInvoke<ConnectionStatus>('get_connection_status');
 export const getAvailableModels = () => safeInvoke<ModelInfo[]>('get_available_models');
 export const getRemoteModels = () => safeInvoke<string[]>('get_remote_models');
@@ -264,14 +336,12 @@ export const detectGpuHardware = () => safeInvoke<GpuInfo>('detect_gpu_hardware'
 export const listRecipes = () => safeInvoke<ServiceRecipe[]>('list_recipes');
 export const getServiceStates = () => safeInvoke<ServiceState[]>('get_service_states');
 export const installAndRunService = (recipe_id: string) =>
-  safeInvoke<void>('install_and_run_service', { recipe_id });
+  safeInvoke<void>('install_and_run_service', { recipeId: recipe_id, recipe_id });
 export const stopService = (recipe_id: string) =>
-  safeInvoke<void>('stop_service', { recipe_id });
+  safeInvoke<void>('stop_service', { recipeId: recipe_id, recipe_id });
 export const refreshServiceStatus = (recipe_id: string) =>
-  safeInvoke<ServiceState>('refresh_service_status', { recipe_id });
+  safeInvoke<ServiceState>('refresh_service_status', { recipeId: recipe_id, recipe_id });
 export const getServiceLogs = (recipe_id: string, tail: number = 100) =>
-  safeInvoke<string>('get_service_logs', { recipe_id, tail });
+  safeInvoke<string>('get_service_logs', { recipeId: recipe_id, recipe_id, tail });
 export const checkServiceHealth = (endpoint: string, timeout_secs: number = 3) =>
-  safeInvoke<boolean>('check_service_health', { endpoint, timeout_secs });
-
-export const isTauri = true;
+  safeInvoke<boolean>('check_service_health', { endpoint, timeoutSecs: timeout_secs, timeout_secs });

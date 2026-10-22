@@ -175,7 +175,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
         finalPrompt = `[System Directive: ${activePrompt} (Temperature: ${temperature.toFixed(2)})]\n\n${finalPrompt}`;
       }
 
-      sendMessage(finalPrompt);
+      sendMessage(finalPrompt, selectedModel || undefined);
       setInputVal('');
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';

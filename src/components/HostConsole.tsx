@@ -22,6 +22,7 @@ import { Logo } from './common/Logo';
 import { IntegrationsPanel } from './IntegrationsPanel';
 import { AppStoreCatalog } from './AppStoreCatalog';
 import { UserManagementPanel } from './UserManagementPanel';
+import { ResourceMonitor } from './ResourceMonitor';
 import { ThemeToggle } from './common/ThemeToggle';
 import { CustomSelect } from './common/CustomSelect';
 
@@ -32,7 +33,7 @@ interface HostConsoleProps {
 export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
   const [activeNav, setActiveNav] = useState<'sessions' | 'catalog' | 'users' | 'devices' | 'model' | 'integrations' | 'settings'>('sessions');
   const { isHosting, sessions, startHosting, stopHosting, killSession } = useHosting();
-  const { status: ollamaStatus, models, pullModel, swapModel } = useOllama();
+  const { status: ollamaStatus, models, pullModel, swapModel, pullProgress, isPulling } = useOllama();
   const { settings, save } = useSettings();
   
   // Local form state for Settings to prevent keystroke save jitter
@@ -400,6 +401,11 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
               </div>
             </div>
 
+            {/* Live Host Hardware & GPU Monitor */}
+            <div className="my-2">
+              <ResourceMonitor />
+            </div>
+
             <div className="flex justify-between items-center" style={{ marginTop: 'var(--gc-space-sm)' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 600 }}>Active Sessions</h2>
               <span className="text-muted" style={{ fontSize: '13px' }}>{sessions.length} connected</span>
@@ -579,18 +585,79 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                 </div>
               ) : (
                 <div className="flex flex-col gap-sm">
-                  {models.map(m => (
-                    <div key={m.name} className="flex justify-between items-center" style={{ padding: 'var(--gc-space-sm) var(--gc-space-md)', background: 'var(--gc-bg)', border: '1px solid var(--gc-border)', borderRadius: 'var(--gc-radius-md)' }}>
-                      <div>
-                        <div className="text-mono" style={{ fontSize: '14px', fontWeight: 600 }}>{m.name}</div>
-                        <div className="text-muted" style={{ fontSize: '12px' }}>{(m.size / 1024 / 1024 / 1024).toFixed(2)} GB</div>
+                  {models.map(m => {
+                    const isActive = (formSettings?.default_model || settings?.default_model) === m.name;
+                    return (
+                      <div 
+                        key={m.name} 
+                        className="flex justify-between items-center transition-colors" 
+                        style={{ 
+                          padding: 'var(--gc-space-sm) var(--gc-space-md)', 
+                          background: 'var(--gc-bg)', 
+                          border: isActive ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid var(--gc-border)', 
+                          borderRadius: 'var(--gc-radius-md)' 
+                        }}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-mono" style={{ fontSize: '14px', fontWeight: 600 }}>{m.name}</span>
+                            {isActive && (
+                              <Badge variant="success">Active Default</Badge>
+                            )}
+                          </div>
+                          <div className="text-muted" style={{ fontSize: '12px' }}>{(m.size / 1024 / 1024 / 1024).toFixed(2)} GB</div>
+                        </div>
+                        {!isActive ? (
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={async () => {
+                              await swapModel(m.name);
+                              updateFormField('default_model', m.name);
+                            }}
+                          >
+                            Set Active
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Ready in VRAM
+                          </span>
+                        )}
                       </div>
-                      <Button size="sm" variant="ghost" onClick={() => swapModel(m.name)}>Set Active</Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
+
+            {/* Live Pull Progress Card */}
+            {(isPulling || pullProgress) && (
+              <div className="card glass-panel flex flex-col gap-2 p-4 border border-violet-500/35 bg-violet-950/20 shadow-lg">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-violet-300 flex items-center gap-2">
+                    <Icon name="download" size={15} className="animate-bounce text-violet-400" />
+                    {pullProgress?.status || 'Downloading model weights...'}
+                  </span>
+                  {pullProgress?.completed && pullProgress?.total ? (
+                    <span className="text-mono text-muted text-[11px]">
+                      {(pullProgress.completed / 1024 / 1024 / 1024).toFixed(2)} GB / {(pullProgress.total / 1024 / 1024 / 1024).toFixed(2)} GB ({Math.round((pullProgress.completed / pullProgress.total) * 100)}%)
+                    </span>
+                  ) : null}
+                </div>
+                <div className="w-full h-1.5 bg-black/50 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-violet-600 to-indigo-400 transition-all duration-300"
+                    style={{
+                      width: pullProgress?.completed && pullProgress?.total 
+                        ? `${Math.min(100, Math.round((pullProgress.completed / pullProgress.total) * 100))}%`
+                        : '100%',
+                      animation: !pullProgress?.total ? 'pulse 1.5s infinite' : undefined
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="card glass-panel">
               <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: 'var(--gc-space-xs)' }}>Pull Custom Model</h3>

@@ -27,14 +27,20 @@ pub async fn ensure_cloudflared(app_handle: &AppHandle) -> Result<PathBuf, Strin
         "cloudflared"
     };
 
-    // Check if cloudflared is already installed on the host system PATH
-    let path_check = std::process::Command::new(binary_name)
-        .arg("version")
-        .output();
-    if let Ok(output) = path_check {
-        if output.status.success() {
-            log::info!("Found cloudflared on system PATH.");
-            return Ok(PathBuf::from(binary_name));
+    // Check if cloudflared is already installed on the host system PATH or common directories
+    let system_candidates = [
+        PathBuf::from(binary_name),
+        PathBuf::from("/usr/local/bin").join(binary_name),
+        PathBuf::from("/usr/bin").join(binary_name),
+        PathBuf::from("/bin").join(binary_name),
+        PathBuf::from("/opt/homebrew/bin").join(binary_name),
+    ];
+    for candidate in &system_candidates {
+        if let Ok(output) = std::process::Command::new(candidate).arg("version").output() {
+            if output.status.success() {
+                log::info!("Found cloudflared at {:?}", candidate);
+                return Ok(candidate.clone());
+            }
         }
     }
 

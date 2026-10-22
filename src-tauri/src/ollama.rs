@@ -83,16 +83,24 @@ impl OllamaManager {
     }
 
     pub async fn check_status(&self) -> OllamaStatus {
-        // Check if Ollama is already running (covers Ollama Desktop, system service, etc.)
-        if let Ok(res) = self
-            .client
-            .get(format!("{}/api/tags", self.base_url))
-            .timeout(Duration::from_secs(2))
-            .send()
-            .await
-        {
-            if res.status().is_success() {
-                return OllamaStatus::Running;
+        // Check if Ollama is already running on 127.0.0.1 or localhost (covers Ollama Desktop, system service, etc.)
+        let endpoints = [
+            format!("{}/api/tags", self.base_url),
+            "http://127.0.0.1:11434/api/tags".to_string(),
+            "http://localhost:11434/api/tags".to_string(),
+        ];
+
+        for ep in &endpoints {
+            if let Ok(res) = self
+                .client
+                .get(ep)
+                .timeout(Duration::from_millis(800))
+                .send()
+                .await
+            {
+                if res.status().is_success() {
+                    return OllamaStatus::Running;
+                }
             }
         }
 
@@ -105,7 +113,7 @@ impl OllamaManager {
         let binary_found = detect.map(|o| o.status.success()).unwrap_or(false);
 
         if !binary_found {
-            // On Windows, also check common install locations
+            // On Windows, check common install locations
             #[cfg(target_os = "windows")]
             {
                 let localappdata = std::env::var("LOCALAPPDATA").unwrap_or_default();
@@ -119,11 +127,35 @@ impl OllamaManager {
                 }
             }
 
-            // On macOS, check the app bundle location
+            // On macOS, check the app bundle and homebrew locations
             #[cfg(target_os = "macos")]
             {
-                if std::path::Path::new("/Applications/Ollama.app").exists() {
+                let candidates = [
+                    "/Applications/Ollama.app",
+                    "/usr/local/bin/ollama",
+                    "/opt/homebrew/bin/ollama",
+                ];
+                if candidates.iter().any(|p| std::path::Path::new(p).exists()) {
                     return OllamaStatus::Stopped;
+                }
+            }
+
+            // On Linux, check standard bin directories
+            #[cfg(target_os = "linux")]
+            {
+                let candidates = [
+                    "/usr/local/bin/ollama",
+                    "/usr/bin/ollama",
+                    "/bin/ollama",
+                ];
+                if candidates.iter().any(|p| std::path::Path::new(p).exists()) {
+                    return OllamaStatus::Stopped;
+                }
+                if let Ok(home) = std::env::var("HOME") {
+                    let local_bin = format!("{}/.local/bin/ollama", home);
+                    if std::path::Path::new(&local_bin).exists() {
+                        return OllamaStatus::Stopped;
+                    }
                 }
             }
 
@@ -144,25 +176,54 @@ impl OllamaManager {
 
         // Platform-aware Ollama launch
         #[cfg(target_os = "windows")]
-        let spawn_result = {
-            // CREATE_NO_WINDOW = 0x08000000
-            Command::new("ollama")
-                .arg("serve")
+        let mut child_opt = {
+            let mut cmd = Command::new("ollama");
+            cmd.arg("serve")
                 .creation_flags(0x08000000)
                 .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
+                .stderr(Stdio::null());
+            cmd.spawn().ok()
+        };
+        #[cfg(target_os = "windows")]
+        if child_opt.is_none() {
+            let localappdata = std::env::var("LOCALAPPDATA").unwrap_or_default();
+            let candidate = format!("{}\\Programs\\Ollama\\ollama.exe", localappdata);
+            if std::path::Path::new(&candidate).exists() {
+                let mut cmd = Command::new(&candidate);
+                cmd.arg("serve")
+                    .creation_flags(0x08000000)
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null());
+                child_opt = cmd.spawn().ok();
+            }
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        let mut child_opt = {
+            let mut cmd = Command::new("ollama");
+            cmd.arg("serve")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+            cmd.spawn().ok()
         };
         #[cfg(not(target_os = "windows"))]
-        let spawn_result = {
-            Command::new("ollama")
-                .arg("serve")
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-        };
+        if child_opt.is_none() {
+            let candidates = ["/usr/local/bin/ollama", "/usr/bin/ollama", "/opt/homebrew/bin/ollama"];
+            for cand in candidates {
+                if std::path::Path::new(cand).exists() {
+                    let mut cmd = Command::new(cand);
+                    cmd.arg("serve")
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null());
+                    if let Ok(c) = cmd.spawn() {
+                        child_opt = Some(c);
+                        break;
+                    }
+                }
+            }
+        }
 
-        let child = spawn_result.map_err(|e| OllamaError::SpawnFailed(e.to_string()))?;
+        let child = child_opt.ok_or_else(|| OllamaError::SpawnFailed("Failed to spawn ollama process".to_string()))?;
 
         self.process_handle = Some(child);
         self.managed = true;
@@ -296,5 +357,5 @@ impl Default for OllamaManager {
 }
 
 pub fn auto_select_model() -> &'static str {
-    "qwen2.5:7b-instruct-q4_K_M"
+    "llama3.2"
 }

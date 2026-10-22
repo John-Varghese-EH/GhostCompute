@@ -62,7 +62,7 @@ export function useChat() {
     };
   }, []);
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, model?: string) => {
     const tempId = `user-${Date.now()}`;
     const userMsg: LocalChatMessage = {
       id: tempId,
@@ -75,7 +75,7 @@ export function useChat() {
     setIsStreaming(true);
 
     try {
-      await sendChatMessage(content);
+      await sendChatMessage(content, model);
     } catch (err) {
       console.error('Failed to send chat message:', err);
       setIsStreaming(false);

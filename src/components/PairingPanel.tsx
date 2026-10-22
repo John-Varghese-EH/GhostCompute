@@ -32,6 +32,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
   const [copiedTunnel, setCopiedTunnel] = useState(false);
   const [localIp, setLocalIp] = useState('127.0.0.1');
   const [tunnelUrl, setTunnelUrl] = useState<string | null>(null);
+  const [tunnelError, setTunnelError] = useState<string | null>(null);
   const [isStartingTunnel, setIsStartingTunnel] = useState(false);
 
   const [recentHosts, setRecentHosts] = useState<string[]>(() => {
@@ -68,14 +69,19 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
     getLocalIp().then(setLocalIp).catch(console.error);
     getActiveTunnelUrl().then(url => {
       setTunnelUrl(url || null);
+      if (url) {
+        generateLink().then(setGeneratedLink).catch(console.error);
+      }
     }).catch(console.error);
 
     let unlistenReady: (() => void) | undefined;
     let unlistenCleared: (() => void) | undefined;
+    let unlistenError: (() => void) | undefined;
 
     safeListen<string>('tunnel-url-ready', (event) => {
       if (event.payload && event.payload.trim().length > 0) {
         setTunnelUrl(event.payload);
+        setTunnelError(null);
         generateLink().then(setGeneratedLink).catch(console.error);
       } else {
         setTunnelUrl(null);
@@ -90,9 +96,18 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
       unlistenCleared = unlisten;
     }).catch(console.error);
 
+    safeListen<string>('tunnel-error', (event) => {
+      if (event.payload) {
+        setTunnelError(event.payload);
+      }
+    }).then(unlisten => {
+      unlistenError = unlisten;
+    }).catch(console.error);
+
     return () => {
       if (unlistenReady) unlistenReady();
       if (unlistenCleared) unlistenCleared();
+      if (unlistenError) unlistenError();
     };
   }, [generateLink]);
 
@@ -334,7 +349,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                   <Button 
                     size="sm" 
                     variant="primary"
-                    onClick={() => copyToClipboard(tunnelUrl, 'tunnel')}
+                    onClick={() => copyToClipboard(generatedLink || tunnelUrl, 'tunnel')}
                     className="shrink-0 text-xs px-3.5 py-1.5 flex items-center gap-1.5"
                   >
                     {copiedTunnel ? <Icon name="check" size={14} className="text-emerald-300" /> : <Icon name="content_copy" size={14} />}
@@ -356,6 +371,18 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                   >
                     <Icon name="bolt" size={12} />
                     <span>Launch</span>
+                  </Button>
+                </div>
+              )}
+
+              {tunnelError && (
+                <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2 text-xs text-amber-300">
+                  <div className="flex items-center gap-2">
+                    <Icon name="warning" size={14} className="text-amber-400 shrink-0" />
+                    <span>{tunnelError}</span>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={handleStartQuickTunnel} className="text-[11px] px-2 py-0.5">
+                    Retry
                   </Button>
                 </div>
               )}
@@ -553,22 +580,26 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
               </p>
             </div>
 
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               const val = codeInputValue.trim();
               if (val) {
                 if (val.includes('.') || val.startsWith('http')) {
                   saveRecentHost(val);
-                  connectToUrl(val);
+                  connectToUrl(val).catch((err) => {
+                    console.error('Connection attempt failed:', err);
+                  });
                 } else {
-                  submitCode(val);
+                  submitCode(val).catch((err) => {
+                    console.error('Code submit failed:', err);
+                  });
                 }
               }
             }} className="flex gap-2">
               <input
                 type="text"
                 className="input text-xs flex-1 rounded-xl"
-                placeholder="e.g. 192.168.1.150:8384, 6-digit PIN, or https://tunnel.trycloudflare.com"
+                placeholder="e.g. https://xxx.trycloudflare.com/?token=..., 192.168.1.150:8384, or 6-digit PIN"
                 value={codeInputValue}
                 onChange={(e) => setCodeInputValue(e.target.value)}
               />
@@ -592,7 +623,9 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                       className="px-2.5 py-1 rounded-lg bg-[var(--gc-surface-sunken)] hover:bg-[var(--gc-surface-elevated)] border border-[var(--gc-border)] text-[11px] font-mono text-[var(--gc-text)] transition-colors cursor-pointer flex items-center gap-1"
                       onClick={() => {
                         setCodeInputValue(host);
-                        connectToUrl(host);
+                        connectToUrl(host).catch((err) => {
+                          console.error('Recent host connection failed:', err);
+                        });
                       }}
                       title={`Connect to ${host}`}
                     >
@@ -636,6 +669,17 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                 </button>
               </div>
             </div>
+
+            {/* Live Error Banner */}
+            {typeof state === 'object' && 'Failed' in state && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/25 flex items-start gap-2.5 text-xs text-red-300 animate-fade-in">
+                <Icon name="error_outline" size={16} className="text-red-400 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <span className="font-semibold block text-red-200 mb-0.5">Connection Failed</span>
+                  <p className="leading-relaxed opacity-90">{state.Failed.reason}</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

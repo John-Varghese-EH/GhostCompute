@@ -46,12 +46,26 @@ export function usePairing() {
   }, [state]);
 
   const initiatePairing = useCallback(async (peerId: string) => {
-    await invokeInitiatePairing(peerId);
     setState('Discovering');
+    try {
+      await invokeInitiatePairing(peerId);
+      const updated = await getPairingState();
+      setState(updated);
+    } catch (err: any) {
+      console.error('[GhostCompute Debug] Initiate pairing failed:', err);
+      setState({ Failed: { reason: typeof err === 'string' ? err : err?.message || 'Pairing failed' } });
+      throw err;
+    }
   }, []);
 
   const confirmPairing = useCallback(async (confirmed: boolean) => {
-    await invokeConfirmPairing(confirmed);
+    try {
+      await invokeConfirmPairing(confirmed);
+      const updated = await getPairingState();
+      setState(updated);
+    } catch (err: any) {
+      console.error('[GhostCompute Debug] Confirm pairing failed:', err);
+    }
   }, []);
 
   const generateCode = useCallback(async () => {
@@ -60,8 +74,16 @@ export function usePairing() {
   }, []);
 
   const submitCode = useCallback(async (code: string) => {
-    await invokeSubmitCode(code);
     setState('Discovering');
+    try {
+      await invokeSubmitCode(code);
+      const updated = await getPairingState();
+      setState(updated);
+    } catch (err: any) {
+      console.error('[GhostCompute Debug] Submit code failed:', err);
+      setState({ Failed: { reason: typeof err === 'string' ? err : err?.message || 'Invalid code' } });
+      throw err;
+    }
   }, []);
 
   const generateLink = useCallback(async () => {
@@ -70,8 +92,18 @@ export function usePairing() {
   }, []);
 
   const connectToUrl = useCallback(async (url: string) => {
-    await invokeConnectToUrl(url);
+    console.log('[GhostCompute Debug] Attempting connection to host:', url);
     setState('Discovering');
+    try {
+      await invokeConnectToUrl(url);
+      console.log('[GhostCompute Debug] Connected successfully to host:', url);
+      const updated = await getPairingState();
+      setState(updated);
+    } catch (err: any) {
+      console.error('[GhostCompute Debug] Connection failed with error:', err);
+      setState({ Failed: { reason: typeof err === 'string' ? err : err?.message || 'Connection failed' } });
+      throw err;
+    }
   }, []);
 
   const reset = useCallback(() => {

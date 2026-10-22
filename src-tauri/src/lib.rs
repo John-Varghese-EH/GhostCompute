@@ -193,7 +193,7 @@ async fn initiate_pairing(
 
     for addr in &candidate_addrs {
         log::info!("[Pairing] Attempting initiate_pairing with peer {} at {}:{}", peer_id, addr, peer.port);
-        match client.connect(noise_priv, &peer_id, addr, peer.port).await {
+        match client.connect(noise_priv, &peer_id, addr, peer.port, Some(app.clone())).await {
             Ok(_) => {
                 connected = true;
                 break;
@@ -217,8 +217,9 @@ async fn initiate_pairing(
     let payload = serde_json::json!({
         "action": "pair"
     });
+    let req_bytes = serde_json::to_vec(&payload).map_err(|e| format!("Failed to serialize payload: {}", e))?;
     let resp_bytes = client
-        .send_request(&serde_json::to_vec(&payload).unwrap())
+        .send_request(&req_bytes)
         .await
         .map_err(|e| format!("{}", e))?;
 
@@ -282,6 +283,17 @@ async fn confirm_pairing(
             .map_err(|e| format!("{}", e))?;
         *ps = PairingState::Completed { peer_id };
         let _ = app.emit("pairing-state-changed", ());
+
+        drop(store);
+        drop(ps);
+        let client = state.client.lock().await;
+        let confirm_msg = serde_json::json!({
+            "action": "pair_confirm",
+            "confirmed": true
+        });
+        if let Ok(bytes) = serde_json::to_vec(&confirm_msg) {
+            let _ = client.send_payload(&bytes).await;
+        }
     }
     Ok(())
 }
@@ -309,7 +321,7 @@ async fn submit_pairing_code(
             let mut client = state.client.lock().await;
             let noise_priv = state.identity.noise_private;
             if client
-                .connect(noise_priv, &peer.peer_id, &address, peer.port)
+                .connect(noise_priv, &peer.peer_id, &address, peer.port, Some(app.clone()))
                 .await
                 .is_ok()
             {
@@ -317,20 +329,19 @@ async fn submit_pairing_code(
                     "action": "pair",
                     "code": code
                 });
-                if let Ok(resp_bytes) = client
-                    .send_request(&serde_json::to_vec(&payload).unwrap())
-                    .await
-                {
-                    if let Ok(resp) = serde_json::from_slice::<serde_json::Value>(&resp_bytes) {
-                        if resp.get("action").and_then(|a| a.as_str()) == Some("pair_ok") {
-                            let store = state.peer_store.lock().await;
-                            let _ = store.add_peer(&peer.peer_id, &peer.device_name, &peer.peer_id);
-                            let mut ps = state.pairing_state.lock().await;
-                            *ps = crate::pairing::PairingState::Completed {
-                                peer_id: peer.peer_id.clone(),
-                            };
-                            let _ = app.emit("pairing-state-changed", ());
-                            return Ok(true);
+                if let Ok(req_bytes) = serde_json::to_vec(&payload) {
+                    if let Ok(resp_bytes) = client.send_request(&req_bytes).await {
+                        if let Ok(resp) = serde_json::from_slice::<serde_json::Value>(&resp_bytes) {
+                            if resp.get("action").and_then(|a| a.as_str()) == Some("pair_ok") {
+                                let store = state.peer_store.lock().await;
+                                let _ = store.add_peer(&peer.peer_id, &peer.device_name, &peer.peer_id);
+                                let mut ps = state.pairing_state.lock().await;
+                                *ps = crate::pairing::PairingState::Completed {
+                                    peer_id: peer.peer_id.clone(),
+                                };
+                                let _ = app.emit("pairing-state-changed", ());
+                                return Ok(true);
+                            }
                         }
                     }
                 }
@@ -521,7 +532,11 @@ async fn start_quick_tunnel(
 // -- Client commands --
 
 #[tauri::command]
-async fn connect_to_host(state: tauri::State<'_, AppState>, peer_id: String) -> Result<(), String> {
+async fn connect_to_host(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    peer_id: String,
+) -> Result<(), String> {
     let peers = state.discovered_peers.lock().await;
     let peer = peers
         .iter()
@@ -541,7 +556,7 @@ async fn connect_to_host(state: tauri::State<'_, AppState>, peer_id: String) -> 
 
     for addr in &candidate_addrs {
         log::info!("[Client] Trying host {}:{}", addr, peer.port);
-        match client.connect(noise_priv, &peer_id, addr, peer.port).await {
+        match client.connect(noise_priv, &peer_id, addr, peer.port, Some(app.clone())).await {
             Ok(_) => return Ok(()),
             Err(e) => {
                 log::warn!("[Client] Failed connecting to {}:{}: {}", addr, peer.port, e);
@@ -566,39 +581,62 @@ async fn connect_to_url(
     let mut client = state.client.lock().await;
     let noise_priv = state.identity.noise_private;
     client
-        .connect_url(noise_priv, &url)
+        .connect_url(noise_priv, &url, Some(app.clone()))
         .await
         .map_err(|e| format!("{}", e))?;
 
     let remote_id = client.last_peer_id().unwrap_or_else(|| "remote-host".to_string());
 
     let mut token = None;
+    let mut code = None;
     if let Ok(parsed) = url::Url::parse(&url) {
         for (k, v) in parsed.query_pairs() {
             if k == "token" {
                 token = Some(v.into_owned());
-                break;
+            } else if k == "code" || k == "pin" {
+                code = Some(v.into_owned());
+            }
+        }
+    }
+    if token.is_none() || code.is_none() {
+        if let Some((_, query)) = url.split_once('?') {
+            for pair in query.split('&') {
+                if let Some((k, v)) = pair.split_once('=') {
+                    if k == "token" && token.is_none() {
+                        token = Some(v.to_string());
+                    } else if (k == "code" || k == "pin") && code.is_none() {
+                        code = Some(v.to_string());
+                    }
+                }
             }
         }
     }
 
     let mut payload_map = serde_json::Map::new();
     payload_map.insert("action".to_string(), serde_json::json!("pair"));
-    if let Some(t) = token {
+    if let Some(ref t) = token {
         payload_map.insert("token".to_string(), serde_json::json!(t));
+    }
+    if let Some(ref c) = code {
+        payload_map.insert("code".to_string(), serde_json::json!(c));
     }
     
     let payload = serde_json::Value::Object(payload_map);
     
+    log::info!("[Pairing] Sending pairing request payload (has_token: {}, has_code: {}) to {}", token.is_some(), code.is_some(), remote_id);
+    let req_bytes = serde_json::to_vec(&payload).map_err(|e| format!("Failed to serialize pairing payload: {}", e))?;
     let resp_bytes = client
-        .send_request(&serde_json::to_vec(&payload).unwrap())
+        .send_request(&req_bytes)
         .await
         .map_err(|e| format!("{}", e))?;
 
     let resp: serde_json::Value =
         serde_json::from_slice(&resp_bytes).map_err(|e| format!("{}", e))?;
         
+    log::info!("[Pairing] Received response action from host: {:?}", resp.get("action"));
+
     if resp.get("action").and_then(|a| a.as_str()) == Some("pair_ok") {
+        log::info!("[Pairing] Successfully authenticated & paired with host {}", remote_id);
         let store = state.peer_store.lock().await;
         let _ = store.add_peer(&remote_id, &url, &remote_id);
         let mut ps = state.pairing_state.lock().await;
@@ -649,6 +687,7 @@ async fn send_chat_message(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     message: String,
+    model: Option<String>,
 ) -> Result<(), String> {
     let mut msg = message;
     let settings = state.settings.lock().await.get();
@@ -663,6 +702,7 @@ async fn send_chat_message(
     let payload = serde_json::to_vec(&serde_json::json!({
         "action": "chat",
         "message": msg,
+        "model": model,
     }))
     .map_err(|e| format!("{}", e))?;
 
@@ -691,10 +731,13 @@ async fn get_host_sys_stats(
     state: tauri::State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
     let mut client = state.client.lock().await;
-    client
-        .get_host_sys_stats()
-        .await
-        .map_err(|e| format!("{}", e))
+    match client.get_host_sys_stats().await {
+        Ok(stats) => Ok(stats),
+        Err(_) => {
+            let local_stats = crate::sys_monitor::get_system_stats();
+            serde_json::to_value(&local_stats).map_err(|e| e.to_string())
+        }
+    }
 }
 
 #[tauri::command]
@@ -742,9 +785,33 @@ async fn pull_model(
 }
 
 #[tauri::command]
-async fn swap_model(_state: tauri::State<'_, AppState>, _name: String) -> Result<(), String> {
-    // Model swapping will be implemented when the server handles model loading.
-    // Ollama handles this internally when a different model is requested in /api/chat.
+async fn swap_model(state: tauri::State<'_, AppState>, name: String) -> Result<(), String> {
+    // 1. Update settings with new default model
+    {
+        let mut store = state.settings.lock().await;
+        let mut s = store.get();
+        s.default_model = Some(name.clone());
+        let _ = store.save(s);
+    }
+
+    // 2. Preload into Ollama GPU memory if Ollama is running
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .unwrap_or_default();
+
+    let preload_body = serde_json::json!({
+        "model": name,
+        "keep_alive": "15m"
+    });
+
+    let _ = client
+        .post("http://127.0.0.1:11434/api/generate")
+        .json(&preload_body)
+        .send()
+        .await;
+
+    log::info!("[Ollama] Swapped and preloaded model: {}", name);
     Ok(())
 }
 

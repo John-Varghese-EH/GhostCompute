@@ -70,7 +70,7 @@ pub fn generate_pairing_code() -> PairingCode {
     let num: u8 = rng.gen_range(10..=99);
 
     let code = format!("{}-{}-{:02}", word1, word2, num);
-    let expires_at = Utc::now() + Duration::minutes(10);
+    let expires_at = Utc::now() + Duration::hours(24);
 
     PairingCode { code, expires_at }
 }
@@ -88,7 +88,7 @@ pub fn generate_pairing_link(host_url: Option<String>) -> PairingLink {
         format!("ghostcompute://pair/{}", token)
     };
     
-    let expires_at = Utc::now() + Duration::minutes(10);
+    let expires_at = Utc::now() + Duration::hours(24);
 
     PairingLink {
         url,

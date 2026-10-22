@@ -247,6 +247,19 @@ async fn handle_proxy_request(
                     }
                 }
             }
+        } else {
+            // Check local Ollama at http://127.0.0.1:11434/v1/models
+            let client = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_millis(1500))
+                .build()
+                .unwrap_or_default();
+            if let Ok(res) = client.get("http://127.0.0.1:11434/v1/models").send().await {
+                if let Ok(mut json) = res.json::<serde_json::Value>().await {
+                    if let Some(data) = json.get_mut("data").and_then(|d| d.as_array_mut()) {
+                        aggregated_models.append(data);
+                    }
+                }
+            }
         }
 
         let final_json = serde_json::json!({
@@ -295,7 +308,8 @@ async fn handle_proxy_request(
                                 &url
                             );
                             for (k, v) in &proxy_req.headers {
-                                if k.to_lowercase() != "host" {
+                                let kl = k.to_lowercase();
+                                if kl != "host" && kl != "content-length" && kl != "connection" && kl != "transfer-encoding" && kl != "authorization" {
                                     req_builder = req_builder.header(k, v);
                                 }
                             }
@@ -353,19 +367,68 @@ async fn handle_proxy_request(
     }
 
     if !is_connected {
-        let error_body = serde_json::json!({
-            "error": {
-                "message": "Not connected to a host. Start the tunnel first.",
-                "type": "connection_error"
+        // Universal fallback: proxy to local Ollama instance on 127.0.0.1:11434 (Host mode or standalone)
+        let local_url = format!("http://127.0.0.1:11434{}", path);
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(300))
+            .build()
+            .unwrap_or_default();
+            
+        let mut req_builder = client.request(
+            reqwest::Method::from_bytes(proxy_req.method.as_bytes()).unwrap_or(reqwest::Method::POST),
+            &local_url
+        );
+        for (k, v) in &proxy_req.headers {
+            let kl = k.to_lowercase();
+            if kl != "host" && kl != "content-length" && kl != "connection" && kl != "transfer-encoding" {
+                req_builder = req_builder.header(k, v);
             }
-        });
-        let mut headers = HeaderMap::new();
-        headers.insert(axum::http::header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            headers,
-            axum::response::Json(error_body).to_string()
-        ).into_response();
+        }
+        if let Some(ref b64) = proxy_req.body_base64 {
+            if let Ok(bytes) = BASE64.decode(b64) {
+                req_builder = req_builder.body(bytes);
+            }
+        }
+        
+        match req_builder.send().await {
+            Ok(mut res) => {
+                let status_code = StatusCode::from_u16(res.status().as_u16()).unwrap_or(StatusCode::OK);
+                let mut response_headers = HeaderMap::new();
+                for (name, value) in res.headers() {
+                    if let Ok(name) = HeaderName::from_bytes(name.as_str().as_bytes()) {
+                        if let Ok(val) = HeaderValue::from_bytes(value.as_bytes()) {
+                            response_headers.insert(name, val);
+                        }
+                    }
+                }
+                let (tx, body_rx) = tokio::sync::mpsc::channel::<Result<axum::body::Bytes, std::io::Error>>(100);
+                tokio::spawn(async move {
+                    while let Ok(Some(chunk)) = res.chunk().await {
+                        if tx.send(Ok(chunk.into())).await.is_err() {
+                            break;
+                        }
+                    }
+                });
+                let stream = tokio_stream::wrappers::ReceiverStream::new(body_rx);
+                let body = Body::from_stream(stream);
+                return (status_code, response_headers, body).into_response();
+            }
+            Err(_) => {
+                let error_body = serde_json::json!({
+                    "error": {
+                        "message": "Not connected to a remote host and local Ollama (127.0.0.1:11434) is not reachable.",
+                        "type": "connection_error"
+                    }
+                });
+                let mut headers = HeaderMap::new();
+                headers.insert(axum::http::header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    headers,
+                    axum::response::Json(error_body).to_string()
+                ).into_response();
+            }
+        }
     }
 
     // We are connected! Send to P2P Host

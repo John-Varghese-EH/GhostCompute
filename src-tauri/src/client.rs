@@ -15,6 +15,8 @@ pub enum ClientError {
     Transport(String),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
     #[error("Host rejected connection")]
     HostRejected,
 }
@@ -84,9 +86,10 @@ impl ClientConnection {
         peer_id: &str,
         address: &str,
         port: u16,
+        app_handle: Option<tauri::AppHandle>,
     ) -> Result<(), ClientError> {
         let url = format!("ws://{}:{}", address, port);
-        self.connect_url(noise_priv, &url).await?;
+        self.connect_url(noise_priv, &url, app_handle).await?;
         self.last_address = Some(address.to_string());
         self.last_port = Some(port);
         self.last_peer_id = Some(peer_id.to_string());
@@ -97,20 +100,27 @@ impl ClientConnection {
         &mut self,
         noise_priv: [u8; 32],
         url: &str,
+        app_handle: Option<tauri::AppHandle>,
     ) -> Result<(), ClientError> {
         self.status = ConnectionStatus::Connecting;
 
-        // Ensure url has scheme and is sanitized
         let trimmed = url.trim().trim_end_matches('/');
         if trimmed.starts_with("ghostcompute://") {
             return Err(ClientError::Transport(
                 "A Cloudflare Tunnel URL or Host LAN IP is required for pairing. Please configure a tunnel or enter host IP directly.".to_string(),
             ));
         }
-        let mut ws_url = trimmed.to_string();
+
+        // Cleanly separate base endpoint from query parameters (e.g. ?token=...)
+        let (raw_base, query) = match trimmed.split_once('?') {
+            Some((base, q)) => (base.trim_end_matches('/'), Some(q)),
+            None => (trimmed, None),
+        };
+
+        let mut ws_url = raw_base.to_string();
         let has_scheme = ws_url.starts_with("ws://") || ws_url.starts_with("wss://") || ws_url.starts_with("http://") || ws_url.starts_with("https://");
         if !has_scheme {
-            let is_tunnel = ws_url.contains("trycloudflare.com") || ws_url.contains("cloudflareaccess.com");
+            let is_tunnel = ws_url.contains("trycloudflare.com") || ws_url.contains("cloudflareaccess.com") || ws_url.contains(".pinggy.link");
             if !ws_url.contains(':') && !is_tunnel {
                 ws_url = format!("{}:8384", ws_url);
             }
@@ -125,27 +135,37 @@ impl ClientConnection {
             ws_url = format!("wss://{}", stripped);
         }
 
+        if let Some(q) = query {
+            ws_url = format!("{}?{}", ws_url, q);
+        }
+
         let request =
             tokio_tungstenite::tungstenite::client::IntoClientRequest::into_client_request(
                 ws_url.as_str(),
             )
-            .map_err(|e| ClientError::Transport(e.to_string()))?;
+            .map_err(|e| ClientError::Transport(format!("Invalid URL '{}': {}", ws_url, e)))?;
 
+        log::info!("[Client] Initiating connection to: {}", ws_url);
+
+        // Allow 15 seconds for WAN / Cloudflare edge tunnel connections to establish
         let connect_timeout = tokio::time::timeout(
-            Duration::from_secs(6),
+            Duration::from_secs(15),
             tokio_tungstenite::connect_async(request),
         )
         .await;
 
         match connect_timeout {
-            Ok(Ok((ws_stream, _))) => {
+            Ok(Ok((ws_stream, response))) => {
+                log::info!("[Client] WebSocket transport established with {} (HTTP status: {})", ws_url, response.status());
                 use futures_util::StreamExt;
                 let (tx, rx) = ws_stream.split();
                 let tx: crate::transport::BoxSink = Box::new(tx);
                 let rx: crate::transport::BoxStream = Box::new(rx);
 
+                // Allow 15 seconds for Noise cryptographic handshake over WAN tunnels
+                log::info!("[Client] Commencing Noise-XX cryptographic handshake with {}", ws_url);
                 let handshake_timeout = tokio::time::timeout(
-                    Duration::from_secs(6),
+                    Duration::from_secs(15),
                     transport::handshake_as_initiator(tx, rx, &noise_priv),
                 )
                 .await;
@@ -153,6 +173,7 @@ impl ClientConnection {
                 match handshake_timeout {
                     Ok(Ok(mut session)) => {
                         let remote_id = session.peer_id().to_string();
+                        log::info!("[Client] Cryptographic handshake SUCCESS with peer: {}", remote_id);
                         self.last_peer_id = Some(remote_id.clone());
                         self.last_address = Some(ws_url.clone());
                         
@@ -161,6 +182,9 @@ impl ClientConnection {
                         
                         let routers = self.routers.clone();
                         let app_routers = self.routers.clone();
+                        let app_clone = app_handle.clone();
+                        let remote_peer_for_actor = remote_id.clone();
+                        let ws_url_for_actor = ws_url.clone();
                         
                         // Spawn background actor loop
                         tokio::spawn(async move {
@@ -191,8 +215,25 @@ impl ClientConnection {
                                                                 }
                                                             }
                                                         }
-                                                    } else if action == "pair_sas" || action == "pair_ok" {
-                                                        // For pairing payloads, broadcast to the pair channel if it exists
+                                                    } else if action == "pair_ok" {
+                                                        log::info!("[Client] Received pair_ok approval from host!");
+                                                        if let Some(ref app) = app_clone {
+                                                            use tauri::Manager;
+                                                            use tauri::Emitter;
+                                                            if let Some(app_state) = app.try_state::<crate::AppState>() {
+                                                                let store = app_state.peer_store.lock().await;
+                                                                let _ = store.add_peer(&remote_peer_for_actor, &ws_url_for_actor, &remote_peer_for_actor);
+                                                                let mut ps = app_state.pairing_state.lock().await;
+                                                                *ps = crate::pairing::PairingState::Completed { peer_id: remote_peer_for_actor.clone() };
+                                                                let _ = app.emit("pairing-state-changed", ());
+                                                                log::info!("[Client] Pairing state set to Completed and saved to trusted peers for {}", remote_peer_for_actor);
+                                                            }
+                                                        }
+                                                        let r = routers.lock().await;
+                                                        if let Some(sender) = r.get("pairing") {
+                                                            let _ = sender.send(parsed.clone()).await;
+                                                        }
+                                                    } else if action == "pair_sas" {
                                                         let r = routers.lock().await;
                                                         if let Some(sender) = r.get("pairing") {
                                                             let _ = sender.send(parsed.clone()).await;
@@ -241,7 +282,10 @@ impl ClientConnection {
             Ok(Err(e)) => {
                 self.status = ConnectionStatus::Disconnected;
                 let err_str = e.to_string();
-                let friendly = if err_str.contains("refused") || err_str.contains("10061") || err_str.contains("111") {
+                log::warn!("[Client] Transport connection failed for {}: {}", ws_url, err_str);
+                let friendly = if err_str.contains("530") {
+                    format!("Cloudflare Tunnel returned HTTP 530 (Origin Down or Expired). The Quick Tunnel URL has expired or is still provisioning. On the Host PC, click 'Restart Tunnel' to obtain a fresh URL.", )
+                } else if err_str.contains("refused") || err_str.contains("10061") || err_str.contains("111") {
                     format!("Connection refused by {}. Verify that GhostCompute is actively running in Server Mode on the Host PC and port 8384 is allowed through Windows Firewall.", ws_url)
                 } else {
                     format!("Failed to connect to {}: {}", ws_url, err_str)
@@ -250,8 +294,9 @@ impl ClientConnection {
             }
             Err(_) => {
                 self.status = ConnectionStatus::Disconnected;
+                log::warn!("[Client] Connection timeout (15s) waiting for {}", ws_url);
                 Err(ClientError::Transport(format!(
-                    "Connection to {} timed out after 6 seconds. If connecting over Wi-Fi, ensure Windows Defender Firewall allows port 8384. If on another network, use the Cloudflare Tunnel URL.",
+                    "Connection to {} timed out after 15 seconds. If connecting over Wi-Fi, ensure Windows Defender Firewall allows port 8384. If on another network, ensure the Cloudflare Quick Tunnel is active on the Host.",
                     ws_url
                 )))
             }
@@ -261,6 +306,15 @@ impl ClientConnection {
     pub async fn disconnect(&mut self) {
         self.sender = None;
         self.status = ConnectionStatus::Disconnected;
+    }
+
+    pub async fn send_payload(&self, payload: &[u8]) -> Result<(), ClientError> {
+        let sender = self.sender.as_ref().ok_or(ClientError::NotConnected)?;
+        sender
+            .send(payload.to_vec())
+            .await
+            .map_err(|e| ClientError::Transport(e.to_string()))?;
+        Ok(())
     }
 
     pub async fn send_request(&mut self, payload: &[u8]) -> Result<Vec<u8>, ClientError> {
@@ -317,21 +371,30 @@ impl ClientConnection {
         payload: &[u8],
         app: tauri::AppHandle,
     ) -> Result<(), ClientError> {
-        // Parse chat request to extract the message
+        // Parse chat request to extract the message and model
         let v: serde_json::Value = serde_json::from_slice(payload)
             .map_err(|e| ClientError::Transport(format!("Invalid chat payload: {}", e)))?;
         let message = v.get("message")
             .and_then(|m| m.as_str())
             .unwrap_or("")
             .to_string();
+
+        let explicit_model = v.get("model")
+            .and_then(|m| m.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+
+        let target_model = if let Some(m) = explicit_model {
+            m
+        } else {
+            let remote_models = self.get_remote_models().await.unwrap_or_default();
+            remote_models.into_iter().next().unwrap_or_else(|| "llama3.2".to_string())
+        };
         
-        // We simulate a proxy chat by forwarding to the local /api/chat instead, 
-        // but GhostCompute's Tauri UI still expects "chat-chunk" events!
-        // So we build an HttpProxyRequest to /api/chat
         let req_id = uuid::Uuid::new_v4().to_string();
         
         let ollama_req = serde_json::json!({
-            "model": crate::ollama::auto_select_model(),
+            "model": target_model,
             "messages": [
                 {
                     "role": "user",
@@ -347,7 +410,10 @@ impl ClientConnection {
             method: "POST".to_string(),
             path: "/api/chat".to_string(),
             headers: vec![("Content-Type".to_string(), "application/json".to_string())],
-            body_base64: Some(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, serde_json::to_vec(&ollama_req).unwrap())),
+            body_base64: Some(base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                serde_json::to_vec(&ollama_req)?,
+            )),
         };
         
         let mut rx = self.proxy_http_request(req).await?;

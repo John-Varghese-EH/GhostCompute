@@ -16,7 +16,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<'host' | 'client' | null>(null);
   
-  const { status, models, pullModel } = useOllama();
+  const { status, models, pullModel, pullProgress, isPulling } = useOllama();
   const { startHosting } = useHosting();
 
   React.useEffect(() => {
@@ -281,7 +281,10 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                   <Button 
                     onClick={() => {
                       const el = document.getElementById('model-input') as HTMLInputElement;
-                      if (el && el.value) pullModel(el.value);
+                      if (el && el.value.trim()) {
+                        pullModel(el.value.trim());
+                        el.value = '';
+                      }
                     }}
                     className="flex items-center gap-1.5 shrink-0 px-4"
                   >
@@ -289,6 +292,32 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                     <span>Pull</span>
                   </Button>
                 </div>
+
+                {(isPulling || pullProgress) && (
+                  <div className="mt-3 p-3 rounded-xl bg-violet-950/30 border border-violet-500/30 flex flex-col gap-1.5 animate-fade-in">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="font-semibold text-violet-300 flex items-center gap-1.5">
+                        <Icon name="download" size={13} className="animate-bounce text-violet-400" />
+                        {pullProgress?.status || 'Downloading weights...'}
+                      </span>
+                      {pullProgress?.completed && pullProgress?.total ? (
+                        <span className="text-mono text-muted text-[10px]">
+                          {(pullProgress.completed / 1024 / 1024 / 1024).toFixed(2)} GB / {(pullProgress.total / 1024 / 1024 / 1024).toFixed(2)} GB ({Math.round((pullProgress.completed / pullProgress.total) * 100)}%)
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="w-full h-1 bg-black/50 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-violet-500 transition-all duration-300"
+                        style={{
+                          width: pullProgress?.completed && pullProgress?.total 
+                            ? `${Math.min(100, Math.round((pullProgress.completed / pullProgress.total) * 100))}%`
+                            : '100%'
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use serde::Serialize;
 use std::process::Stdio;
@@ -87,16 +88,38 @@ impl HostServer {
                             let app_handle = app_handle_clone.clone();
 
                             tokio::spawn(async move {
-                                let mut peek_buf = [0u8; 1024];
-                                let n = match socket.peek(&mut peek_buf).await {
-                                    Ok(n) => n,
-                                    Err(e) => {
-                                        log::debug!("Peek error from {}: {}", addr, e);
-                                        return;
+                                let mut peek_buf = [0u8; 4096];
+                                let mut n = 0;
+                                let start_peek = tokio::time::Instant::now();
+                                while start_peek.elapsed() < Duration::from_millis(500) {
+                                    match socket.peek(&mut peek_buf).await {
+                                        Ok(read_n) => {
+                                            n = read_n;
+                                            let peek_slice = &peek_buf[..n];
+                                            if peek_slice.windows(4).any(|w| w == b"\r\n\r\n") || peek_slice.windows(2).any(|w| w == b"\n\n") {
+                                                break;
+                                            }
+                                            if n == 0 {
+                                                break;
+                                            }
+                                            tokio::time::sleep(Duration::from_millis(10)).await;
+                                        }
+                                        Err(e) => {
+                                            log::debug!("Peek error from {}: {}", addr, e);
+                                            return;
+                                        }
                                     }
-                                };
+                                }
+
+                                if n == 0 {
+                                    return;
+                                }
+
                                 let peek_str = String::from_utf8_lossy(&peek_buf[..n]);
-                                let is_ws = peek_str.to_ascii_lowercase().contains("upgrade: websocket");
+                                let lower = peek_str.to_ascii_lowercase();
+                                let is_ws = lower.contains("upgrade: websocket")
+                                    || (lower.contains("upgrade") && lower.contains("websocket"))
+                                    || lower.contains("sec-websocket-key");
 
                                 if !is_ws && (peek_str.starts_with("GET ") || peek_str.starts_with("HEAD ") || peek_str.starts_with("OPTIONS ") || peek_str.starts_with("POST ")) {
                                     handle_browser_http_request(socket, addr, &peek_str).await;
@@ -110,8 +133,13 @@ impl HostServer {
                                         let tx: crate::transport::BoxSink = Box::new(tx);
                                         let rx: crate::transport::BoxStream = Box::new(rx);
 
-                                        match transport::handshake_as_responder(tx, rx, &noise_priv).await {
-                                            Ok(mut session) => {
+                                        let handshake_timeout = tokio::time::timeout(
+                                            Duration::from_secs(15),
+                                            transport::handshake_as_responder(tx, rx, &noise_priv),
+                                        ).await;
+
+                                        match handshake_timeout {
+                                            Ok(Ok(mut session)) => {
                                                 let peer_id = session.peer_id().to_string();
                                                 let mut is_trusted = {
                                                     let store = store.lock().await;
@@ -247,6 +275,21 @@ impl HostServer {
                                                                             continue;
                                                                         }
 
+                                                                        if action == "pair_confirm" {
+                                                                            let confirmed = parsed.get("confirmed").and_then(|v| v.as_bool()).unwrap_or(false);
+                                                                            if confirmed {
+                                                                                let store = store.lock().await;
+                                                                                let _ = store.add_peer(&peer_id, &addr.to_string(), &peer_id);
+                                                                                is_trusted = true;
+                                                                                let mut ps = app_state.pairing_state.lock().await;
+                                                                                *ps = crate::pairing::PairingState::Completed { peer_id: peer_id.clone() };
+                                                                                let _ = tx_out.send(b"{\"action\":\"pair_ok\",\"done\":true}".to_vec()).await;
+                                                                                let _ = app_handle.emit("pairing-state-changed", ());
+                                                                                log::info!("[Server] Peer {} confirmed pairing from client side! Trusted.", peer_id);
+                                                                            }
+                                                                            continue;
+                                                                        }
+
                                                                         if !is_trusted {
                                                                             let store_guard = store.lock().await;
                                                                             if store_guard.is_trusted(&peer_id).unwrap_or(false) {
@@ -285,7 +328,8 @@ impl HostServer {
                                                                                 );
                                                                                 
                                                                                 for (k, v) in &proxy_req.headers {
-                                                                                    if k.to_lowercase() != "host" {
+                                                                                    let kl = k.to_lowercase();
+                                                                                    if kl != "host" && kl != "content-length" && kl != "connection" && kl != "transfer-encoding" {
                                                                                         req_builder = req_builder.header(k, v);
                                                                                     }
                                                                                 }
@@ -375,8 +419,11 @@ impl HostServer {
                                                 let _ = app_handle.emit("sessions-changed", ());
                                                 session_kills.lock().await.remove(&peer_id);
                                             }
-                                            Err(e) => {
+                                            Ok(Err(e)) => {
                                                 log::warn!("Handshake failed from {}: {}", addr, e);
+                                            }
+                                            Err(_) => {
+                                                log::warn!("Handshake timed out (15s) from {}", addr);
                                             }
                                         }
                                     }
@@ -433,14 +480,14 @@ impl HostServer {
                 cmd.arg("tunnel")
                     .arg("--no-autoupdate")
                     .arg("--url")
-                    .arg(format!("http://localhost:{}", port));
+                    .arg(format!("http://127.0.0.1:{}", port));
             }
         } else {
             log::info!("Spawning zero-config quick tunnel for port {}...", port);
             cmd.arg("tunnel")
                 .arg("--no-autoupdate")
                 .arg("--url")
-                .arg(format!("http://localhost:{}", port));
+                .arg(format!("http://127.0.0.1:{}", port));
         }
 
         cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -496,6 +543,9 @@ impl HostServer {
                             break;
                         }
                     }
+                } else if line.contains("Tunnelstore request failed") || line.contains("provisioning failed") {
+                    log::warn!("[Tunnel] Cloudflare rate limit or provisioning failure: {}", line);
+                    let _ = app_handle_clone.emit("tunnel-error", "Cloudflare Quick Tunnel busy or provisioning rate-limited. Click 'Restart Tunnel' to retry.");
                 }
             }
 
@@ -548,7 +598,11 @@ impl HostServer {
 }
 
 async fn handle_browser_http_request(mut socket: tokio::net::TcpStream, addr: std::net::SocketAddr, request_str: &str) {
-    use tokio::io::AsyncWriteExt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    // Drain the incoming HTTP request body/headers from the socket buffer so HTTP/1.1 completes cleanly
+    let mut drain_buf = [0u8; 4096];
+    let _ = socket.read(&mut drain_buf).await;
 
     let first_line = request_str.lines().next().unwrap_or("");
     let parts: Vec<&str> = first_line.split_whitespace().collect();
@@ -561,6 +615,7 @@ async fn handle_browser_http_request(mut socket: tokio::net::TcpStream, addr: st
         let resp = "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: *\r\nConnection: close\r\n\r\n";
         let _ = socket.write_all(resp.as_bytes()).await;
         let _ = socket.flush().await;
+        let _ = socket.shutdown().await;
         return;
     }
 
@@ -573,6 +628,7 @@ async fn handle_browser_http_request(mut socket: tokio::net::TcpStream, addr: st
         );
         let _ = socket.write_all(resp.as_bytes()).await;
         let _ = socket.flush().await;
+        let _ = socket.shutdown().await;
         return;
     }
 
@@ -1730,4 +1786,5 @@ async fn handle_browser_http_request(mut socket: tokio::net::TcpStream, addr: st
 
     let _ = socket.write_all(resp.as_bytes()).await;
     let _ = socket.flush().await;
+    let _ = socket.shutdown().await;
 }

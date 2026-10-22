@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { Icon } from './common/Icon';
-import { SystemStats } from '../lib/tauri';
+import { SystemStats, getHostSysStats } from '../lib/tauri';
 
 export function ResourceMonitor() {
   const [stats, setStats] = useState<SystemStats | null>(null);
@@ -12,7 +11,7 @@ export function ResourceMonitor() {
 
     const fetchStats = async () => {
       try {
-        const result = await invoke<SystemStats>('get_host_sys_stats');
+        const result = await getHostSysStats();
         if (active) {
           setStats(result);
           setError(null);
