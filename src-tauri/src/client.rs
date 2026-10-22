@@ -104,46 +104,81 @@ impl ClientConnection {
     ) -> Result<(), ClientError> {
         self.status = ConnectionStatus::Connecting;
 
-        let trimmed = url.trim().trim_end_matches('/');
-        if trimmed.starts_with("ghostcompute://") {
-            return Err(ClientError::Transport(
-                "A Cloudflare Tunnel URL or Host LAN IP is required for pairing. Please configure a tunnel or enter host IP directly.".to_string(),
-            ));
+        let mut clean_url = url.trim().to_string();
+
+        // 1. Deep link unpacker: ghostcompute://pair?url=...&token=...
+        if clean_url.starts_with("ghostcompute://") {
+            if let Ok(parsed) = url::Url::parse(&clean_url) {
+                let mut target_url = None;
+                let mut token = None;
+                for (k, v) in parsed.query_pairs() {
+                    if k == "url" {
+                        target_url = Some(v.into_owned());
+                    } else if k == "token" {
+                        token = Some(v.into_owned());
+                    }
+                }
+                if let Some(mut target) = target_url {
+                    if let Some(tok) = token {
+                        if !target.contains("token=") {
+                            let sep = if target.contains('?') { "&" } else { "?" };
+                            target = format!("{}{}{}", target, sep, format!("token={}", tok));
+                        }
+                    }
+                    clean_url = target;
+                }
+            }
         }
 
-        // Cleanly separate base endpoint from query parameters (e.g. ?token=...)
-        let (raw_base, query) = match trimmed.split_once('?') {
+        // 2. Cleanly separate base endpoint from query parameters (e.g. ?token=...)
+        let (raw_base, query) = match clean_url.split_once('?') {
             Some((base, q)) => (base.trim_end_matches('/'), Some(q)),
-            None => (trimmed, None),
+            None => (clean_url.trim_end_matches('/'), None),
         };
 
-        let mut ws_url = raw_base.to_string();
-        let has_scheme = ws_url.starts_with("ws://") || ws_url.starts_with("wss://") || ws_url.starts_with("http://") || ws_url.starts_with("https://");
+        let mut ws_base = raw_base.to_string();
+        let has_scheme = ws_base.starts_with("ws://")
+            || ws_base.starts_with("wss://")
+            || ws_base.starts_with("http://")
+            || ws_base.starts_with("https://");
+
         if !has_scheme {
-            let is_tunnel = ws_url.contains("trycloudflare.com") || ws_url.contains("cloudflareaccess.com") || ws_url.contains(".pinggy.link");
-            if !ws_url.contains(':') && !is_tunnel {
-                ws_url = format!("{}:8384", ws_url);
+            let is_tunnel = ws_base.contains("trycloudflare.com")
+                || ws_base.contains("cloudflareaccess.com")
+                || ws_base.contains(".pinggy.link");
+            if !ws_base.contains(':') && !is_tunnel {
+                ws_base = format!("{}:8384", ws_base);
             }
             if is_tunnel {
-                ws_url = format!("wss://{}", ws_url);
+                ws_base = format!("wss://{}", ws_base);
             } else {
-                ws_url = format!("ws://{}", ws_url);
+                ws_base = format!("ws://{}", ws_base);
             }
-        } else if let Some(stripped) = ws_url.strip_prefix("http://") {
-            ws_url = format!("ws://{}", stripped);
-        } else if let Some(stripped) = ws_url.strip_prefix("https://") {
-            ws_url = format!("wss://{}", stripped);
+        } else if let Some(stripped) = ws_base.strip_prefix("http://") {
+            ws_base = format!("ws://{}", stripped);
+        } else if let Some(stripped) = ws_base.strip_prefix("https://") {
+            ws_base = format!("wss://{}", stripped);
         }
 
-        if let Some(q) = query {
-            ws_url = format!("{}?{}", ws_url, q);
-        }
+        // 3. Ensure the WebSocket request-target has a valid root slash before query or path
+        let ws_url = match query {
+            Some(q) => format!("{}/?{}", ws_base, q),
+            None => format!("{}/", ws_base),
+        };
 
-        let request =
+        let mut request =
             tokio_tungstenite::tungstenite::client::IntoClientRequest::into_client_request(
                 ws_url.as_str(),
             )
             .map_err(|e| ClientError::Transport(format!("Invalid URL '{}': {}", ws_url, e)))?;
+
+        // Add standard User-Agent so Cloudflare Edge WAF / bot mitigations do not reject the connection
+        request.headers_mut().insert(
+            tokio_tungstenite::tungstenite::http::header::USER_AGENT,
+            tokio_tungstenite::tungstenite::http::HeaderValue::from_static(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) GhostCompute/0.1.0 Safari/537.36",
+            ),
+        );
 
         log::info!("[Client] Initiating connection to: {}", ws_url);
 
@@ -285,6 +320,8 @@ impl ClientConnection {
                 log::warn!("[Client] Transport connection failed for {}: {}", ws_url, err_str);
                 let friendly = if err_str.contains("530") {
                     format!("Cloudflare Tunnel returned HTTP 530 (Origin Down or Expired). The Quick Tunnel URL has expired or is still provisioning. On the Host PC, click 'Restart Tunnel' to obtain a fresh URL.", )
+                } else if err_str.contains("400") {
+                    format!("Connection rejected (HTTP 400 Bad Request) by {}. The WebSocket handshake request was malformed or rejected by edge proxy.", ws_url)
                 } else if err_str.contains("refused") || err_str.contains("10061") || err_str.contains("111") {
                     format!("Connection refused by {}. Verify that GhostCompute is actively running in Server Mode on the Host PC and port 8384 is allowed through Windows Firewall.", ws_url)
                 } else {
@@ -340,6 +377,7 @@ impl ClientConnection {
     }
 
     pub fn last_peer_id(&self) -> Option<String> { self.last_peer_id.clone() }
+    pub fn last_address(&self) -> Option<String> { self.last_address.clone() }
 
     pub fn status(&self) -> ConnectionStatus {
         self.status.clone()
@@ -401,7 +439,8 @@ impl ClientConnection {
                     "content": message
                 }
             ],
-            "stream": true
+            "stream": true,
+            "keep_alive": "30m"
         });
         
         let req = HttpProxyRequest {

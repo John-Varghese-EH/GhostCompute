@@ -638,7 +638,8 @@ async fn connect_to_url(
     if resp.get("action").and_then(|a| a.as_str()) == Some("pair_ok") {
         log::info!("[Pairing] Successfully authenticated & paired with host {}", remote_id);
         let store = state.peer_store.lock().await;
-        let _ = store.add_peer(&remote_id, &url, &remote_id);
+        let saved_addr = client.last_address().unwrap_or_else(|| url.clone());
+        let _ = store.add_peer(&remote_id, &saved_addr, &remote_id);
         let mut ps = state.pairing_state.lock().await;
         *ps = crate::pairing::PairingState::Completed { peer_id: remote_id };
         let _ = app.emit("pairing-state-changed", ());
