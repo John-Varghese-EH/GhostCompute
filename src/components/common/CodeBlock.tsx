@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LuCopy, LuCheck } from 'react-icons/lu';
+import { Icon } from './Icon';
 
 interface CodeBlockProps {
   code: string;
@@ -61,7 +61,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language }) => {
             transition: 'all 0.18s var(--gc-ease-g2)'
           }}
         >
-          {copied ? <LuCheck size={12} className="text-success" /> : <LuCopy size={12} />}
+          {copied ? <Icon name="check" size={13} className="text-success" /> : <Icon name="content_copy" size={13} />}
           <span>{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>

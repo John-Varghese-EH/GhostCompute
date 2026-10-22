@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getDiscoveredPeers, startDiscovery, stopDiscovery, DiscoveredPeer } from '../lib/tauri';
+import { getDiscoveredPeers, startDiscovery, stopDiscovery, safeListen, DiscoveredPeer } from '../lib/tauri';
 
 export function useDiscovery() {
   const [peers, setPeers] = useState<DiscoveredPeer[]>([]);
@@ -25,6 +25,7 @@ export function useDiscovery() {
 
   useEffect(() => {
     let intervalId: number;
+    let unlistenFn: (() => void) | undefined;
 
     const fetchPeers = async () => {
       try {
@@ -38,11 +39,20 @@ export function useDiscovery() {
     if (isSearching) {
       fetchPeers();
       intervalId = window.setInterval(fetchPeers, 2000);
+
+      safeListen('peers-changed', () => {
+        fetchPeers();
+      }).then(unlisten => {
+        unlistenFn = unlisten;
+      }).catch(console.error);
     }
 
     return () => {
       if (intervalId) {
         window.clearInterval(intervalId);
+      }
+      if (unlistenFn) {
+        unlistenFn();
       }
     };
   }, [isSearching]);

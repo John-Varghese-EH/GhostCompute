@@ -1,24 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  LuRadio, 
-  LuLink2, 
-  LuQrCode, 
-  LuShieldCheck, 
-  LuWifi, 
-  LuGlobe,
-  LuCopy, 
-  LuCheck, 
-  LuClipboard, 
-  LuHistory,
-  LuServer,
-  LuKeyRound,
-  LuRefreshCw,
-  LuSparkles
-} from 'react-icons/lu';
+import { Icon } from './common/Icon';
 import { useDiscovery } from '../hooks/useDiscovery';
 import { usePairing } from '../hooks/usePairing';
 import { useHosting } from '../hooks/useHosting';
-import { getLocalIp } from '../lib/tauri';
+import { getLocalIp, getActiveTunnelUrl, startQuickTunnel, safeListen } from '../lib/tauri';
 import { Button } from './common/Button';
 import { Badge } from './common/Badge';
 import { Modal } from './common/Modal';
@@ -44,7 +29,10 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedLan, setCopiedLan] = useState(false);
   const [copiedPin, setCopiedPin] = useState(false);
+  const [copiedTunnel, setCopiedTunnel] = useState(false);
   const [localIp, setLocalIp] = useState('127.0.0.1');
+  const [tunnelUrl, setTunnelUrl] = useState<string | null>(null);
+  const [isStartingTunnel, setIsStartingTunnel] = useState(false);
 
   const [recentHosts, setRecentHosts] = useState<string[]>(() => {
     try {
@@ -67,8 +55,57 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
   };
 
   useEffect(() => {
+    const autoTarget = localStorage.getItem('gc_auto_connect');
+    if (autoTarget) {
+      setCodeInputValue(autoTarget);
+      setActiveTab('code');
+      localStorage.removeItem('gc_auto_connect');
+      connectToUrl(autoTarget);
+    }
+  }, [connectToUrl]);
+
+  useEffect(() => {
     getLocalIp().then(setLocalIp).catch(console.error);
-  }, []);
+    getActiveTunnelUrl().then(url => {
+      setTunnelUrl(url || null);
+    }).catch(console.error);
+
+    let unlistenReady: (() => void) | undefined;
+    let unlistenCleared: (() => void) | undefined;
+
+    safeListen<string>('tunnel-url-ready', (event) => {
+      if (event.payload && event.payload.trim().length > 0) {
+        setTunnelUrl(event.payload);
+        generateLink().then(setGeneratedLink).catch(console.error);
+      } else {
+        setTunnelUrl(null);
+      }
+    }).then(unlisten => {
+      unlistenReady = unlisten;
+    }).catch(console.error);
+
+    safeListen('tunnel-url-cleared', () => {
+      setTunnelUrl(null);
+    }).then(unlisten => {
+      unlistenCleared = unlisten;
+    }).catch(console.error);
+
+    return () => {
+      if (unlistenReady) unlistenReady();
+      if (unlistenCleared) unlistenCleared();
+    };
+  }, [generateLink]);
+
+  const handleStartQuickTunnel = async () => {
+    setIsStartingTunnel(true);
+    try {
+      await startQuickTunnel();
+    } catch (err) {
+      console.error('Failed to start quick tunnel:', err);
+    } finally {
+      setIsStartingTunnel(false);
+    }
+  };
 
   // For Host: Auto-start hosting so mDNS begins broadcasting and TCP listener binds port 8384
   useEffect(() => {
@@ -101,7 +138,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
     setGeneratedLink(link);
   };
 
-  const copyToClipboard = (text: string, type: 'lan' | 'pin' | 'link') => {
+  const copyToClipboard = (text: string, type: 'lan' | 'pin' | 'link' | 'tunnel') => {
     navigator.clipboard.writeText(text);
     if (type === 'lan') {
       setCopiedLan(true);
@@ -109,6 +146,9 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
     } else if (type === 'pin') {
       setCopiedPin(true);
       setTimeout(() => setCopiedPin(false), 2000);
+    } else if (type === 'tunnel') {
+      setCopiedTunnel(true);
+      setTimeout(() => setCopiedTunnel(false), 2000);
     } else {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
@@ -133,7 +173,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
               }`}
               onClick={() => setActiveTab('broadcast')}
             >
-              <LuRadio size={14} className={isHosting ? 'breathe-pulse text-emerald-400' : 'text-accent'} />
+              <Icon name="sensors" size={16} className={isHosting ? 'breathe-pulse text-emerald-400' : 'text-accent'} />
               <span>LAN Broadcast</span>
             </button>
           )}
@@ -147,7 +187,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
               }`}
               onClick={() => setActiveTab('nearby')}
             >
-              <LuRadio size={14} className={isSearching ? 'breathe-pulse text-accent' : ''} />
+              <Icon name="sensors" size={16} className={isSearching ? 'breathe-pulse text-accent' : ''} />
               <span>Nearby Discovery</span>
             </button>
           )}
@@ -160,7 +200,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
               }`}
               onClick={() => setActiveTab('code')}
             >
-              <LuLink2 size={14} />
+              <Icon name="link" size={16} />
               <span>Direct IP / Tunnel URL</span>
             </button>
           )}
@@ -173,7 +213,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
               }`}
               onClick={() => setActiveTab('link')}
             >
-              <LuQrCode size={14} />
+              <Icon name="qr_code_2" size={16} />
               <span>Invitation Link</span>
             </button>
           )}
@@ -191,7 +231,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
             <div className="flex justify-between items-center pb-3 border-b border-white/5">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  <LuRadio size={18} className="animate-pulse" />
+                  <Icon name="sensors" size={18} className="animate-pulse" />
                 </div>
                 <div>
                   <div className="text-sm font-bold text-[var(--gc-text)] flex items-center gap-2">
@@ -221,7 +261,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                   Your Machine's LAN Address
                 </span>
                 <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
-                  <LuWifi size={12} />
+                  <Icon name="wifi" size={14} />
                   <span>Wi-Fi / Ethernet Ready</span>
                 </span>
               </div>
@@ -239,7 +279,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                   onClick={() => copyToClipboard(`http://${localIp}:8384`, 'lan')}
                   className="shrink-0 text-xs px-3.5 py-1.5 flex items-center gap-1.5"
                 >
-                  {copiedLan ? <LuCheck size={13} className="text-emerald-300" /> : <LuCopy size={13} />}
+                  {copiedLan ? <Icon name="check" size={14} className="text-emerald-300" /> : <Icon name="content_copy" size={14} />}
                   <span>{copiedLan ? 'Copied!' : 'Copy Address'}</span>
                 </Button>
               </div>
@@ -249,11 +289,87 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
               </p>
             </div>
 
+            {/* Cloudflare Tunnel Status Card (Auto-started Free or Configured) */}
+            <div className="p-4 rounded-xl bg-[var(--gc-surface-sunken)] border border-[var(--gc-border)] flex flex-col gap-2.5">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-semibold text-[var(--gc-text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                  <Icon name="public" size={15} className="text-violet-400" />
+                  <span>Public Zero-Trust Tunnel</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant={tunnelUrl ? "ghost" : "primary"}
+                    onClick={handleStartQuickTunnel}
+                    disabled={isStartingTunnel}
+                    className="flex items-center gap-1 text-[11px] px-2.5 py-1"
+                  >
+                    <Icon 
+                      name={isStartingTunnel ? "refresh" : "bolt"} 
+                      size={12} 
+                      className={isStartingTunnel ? "animate-spin text-accent" : tunnelUrl ? "text-accent" : "text-white"} 
+                    />
+                    <span>{isStartingTunnel ? "Starting..." : (tunnelUrl ? "Restart Tunnel" : "Start Quick Tunnel")}</span>
+                  </Button>
+                  {tunnelUrl ? (
+                    <Badge variant="success" className="squircle-badge py-0.5 px-2 text-[10px] font-bold tracking-wider uppercase">
+                      Live Tunnel Ready
+                    </Badge>
+                  ) : (
+                    <Badge variant="neutral" className="squircle-badge py-0.5 px-2 text-[10px] font-bold tracking-wider uppercase text-zinc-400">
+                      Offline
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {tunnelUrl ? (
+                <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-violet-950/20 border border-violet-500/30">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                    <span className="text-xs sm:text-sm font-mono font-bold text-violet-200 tracking-tight truncate">
+                      {tunnelUrl}
+                    </span>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="primary"
+                    onClick={() => copyToClipboard(tunnelUrl, 'tunnel')}
+                    className="shrink-0 text-xs px-3.5 py-1.5 flex items-center gap-1.5"
+                  >
+                    {copiedTunnel ? <Icon name="check" size={14} className="text-emerald-300" /> : <Icon name="content_copy" size={14} />}
+                    <span>{copiedTunnel ? 'Copied!' : 'Copy Tunnel URL'}</span>
+                  </Button>
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg bg-black/40 border border-white/5 text-xs text-[var(--gc-text-muted)] flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-zinc-500 shrink-0" />
+                    <span>Quick Tunnel is currently offline. Automatically clears when disconnected.</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={handleStartQuickTunnel}
+                    disabled={isStartingTunnel}
+                    className="shrink-0 text-xs px-3 py-1 flex items-center gap-1"
+                  >
+                    <Icon name="bolt" size={12} />
+                    <span>Launch</span>
+                  </Button>
+                </div>
+              )}
+
+              <p className="text-[11px] text-[var(--gc-text-muted)] leading-relaxed">
+                Allows connecting securely over cellular, hotels, or coffee shops without port forwarding or VPNs.
+              </p>
+            </div>
+
             {/* Temporary Pairing PIN */}
             <div className="p-4 rounded-xl bg-[var(--gc-surface-sunken)] border border-[var(--gc-border)] flex flex-col gap-2.5">
               <div className="flex justify-between items-center">
                 <span className="text-[11px] font-semibold text-[var(--gc-text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                  <LuKeyRound size={13} className="text-accent" />
+                  <Icon name="key" size={15} className="text-accent" />
                   <span>Temporary Pairing PIN (Fast Connect)</span>
                 </span>
                 {generatedCode && (
@@ -276,7 +392,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                     onClick={() => copyToClipboard(generatedCode, 'pin')}
                     className="shrink-0 text-xs px-3 py-1 flex items-center gap-1.5"
                   >
-                    {copiedPin ? <LuCheck size={13} className="text-emerald-400" /> : <LuCopy size={13} />}
+                    {copiedPin ? <Icon name="check" size={14} className="text-emerald-400" /> : <Icon name="content_copy" size={14} />}
                     <span>{copiedPin ? 'Copied' : 'Copy PIN'}</span>
                   </Button>
                 </div>
@@ -301,7 +417,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
             {isPaired ? (
               <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3">
                 <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
-                  <LuCheck size={12} className="font-bold" />
+                  <Icon name="check" size={14} className="font-bold" />
                 </div>
                 <div className="text-xs">
                   <div className="font-bold text-white">Client Successfully Connected & Paired!</div>
@@ -311,7 +427,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
             ) : (
               <div className="flex items-center gap-3 p-3 rounded-xl bg-black/40 border border-white/5">
                 <div className="relative flex items-center justify-center w-6 h-6 rounded-md bg-violet-500/10 text-accent shrink-0">
-                  <LuRadio size={14} className="animate-pulse" />
+                  <Icon name="sensors" size={15} className="animate-pulse" />
                 </div>
                 <div className="text-xs text-[var(--gc-text-muted)] flex-1 leading-relaxed">
                   Waiting for client connection... When your laptop connects, cryptographic verification (SAS) will prompt here.
@@ -337,7 +453,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
 
             {peers.length === 0 ? (
               <EmptyState
-                icon={<LuRadio size={32} className="text-accent animate-pulse" />}
+                icon={<Icon name="sensors" size={32} className="text-accent animate-pulse" />}
                 title="No nearby hosts detected yet"
                 description="Ensure your host gaming PC is on Step 2 ('LAN Broadcast') or running in Server Mode on the same local Wi-Fi network."
                 action={
@@ -348,7 +464,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                       onClick={isSearching ? stopSearching : startSearching}
                       className="text-xs px-4"
                     >
-                      <LuRefreshCw size={13} className={isSearching ? 'animate-spin' : ''} />
+                      <Icon name="refresh" size={13} className={isSearching ? 'animate-spin' : ''} />
                       <span className="ml-1.5">{isSearching ? 'Pause Scan' : 'Scan Again'}</span>
                     </Button>
                     <Button 
@@ -357,7 +473,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                       onClick={() => setActiveTab('code')}
                       className="text-xs px-4"
                     >
-                      <LuLink2 size={13} />
+                      <Icon name="link" size={13} />
                       <span className="ml-1.5">Direct IP Connect</span>
                     </Button>
                   </div>
@@ -365,37 +481,63 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
               />
             ) : (
               <div className="flex flex-col gap-2">
-                <div className="text-[11px] font-semibold text-[var(--gc-text-muted)] uppercase tracking-wider mb-1">
-                  Discovered GhostCompute Hosts ({peers.length}):
+                <div className="flex justify-between items-center mb-1">
+                  <div className="text-[11px] font-semibold text-[var(--gc-text-muted)] uppercase tracking-wider">
+                    Discovered GhostCompute Hosts ({peers.length}):
+                  </div>
+                  <Badge variant="info" className="squircle-badge py-0.5 px-2 text-[10px] font-bold">
+                    mDNS Verified
+                  </Badge>
                 </div>
-                {peers.map((peer) => (
-                  <div 
-                    key={peer.peer_id} 
-                    className="flex justify-between items-center p-3.5 bg-[var(--gc-surface-sunken)] hover:bg-[var(--gc-surface-elevated)] border border-[var(--gc-border)] rounded-xl transition-all"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-accent shrink-0">
-                        <LuServer size={20} />
+                {peers.map((peer) => {
+                  const sortedAddrs = [...peer.addresses].sort((a, b) => {
+                    const isA192 = a.startsWith('192.168.');
+                    const isB192 = b.startsWith('192.168.');
+                    if (isA192 && !isB192) return -1;
+                    if (!isA192 && isB192) return 1;
+                    return 0;
+                  });
+                  const primaryAddr = sortedAddrs[0] || 'LAN';
+
+                  return (
+                    <div 
+                      key={peer.peer_id} 
+                      className="flex justify-between items-center p-3.5 bg-[var(--gc-surface-sunken)] hover:bg-[var(--gc-surface-elevated)] border border-[var(--gc-border)] rounded-xl transition-all"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-accent shrink-0">
+                          <Icon name="dns" size={20} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-[var(--gc-text)] tracking-tight truncate flex items-center gap-2">
+                            <span>{peer.device_name}</span>
+                            <span className="text-[10px] py-0.5 px-1.5 rounded-full bg-emerald-500/15 text-emerald-400 font-mono font-medium">
+                              Ready
+                            </span>
+                          </div>
+                          <div className="text-mono text-[var(--gc-text-muted)] text-[11px] mt-0.5 truncate flex items-center gap-1.5">
+                            <span>{primaryAddr}:{peer.port}</span>
+                            {sortedAddrs.length > 1 && (
+                              <span className="text-[10px] text-zinc-500">
+                                (+{sortedAddrs.length - 1} alt IP{sortedAddrs.length > 2 ? 's' : ''})
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-[var(--gc-text)] tracking-tight truncate">
-                          {peer.device_name}
-                        </div>
-                        <div className="text-mono text-[var(--gc-text-muted)] text-[11px] mt-0.5 truncate">
-                          {peer.addresses.length > 0 ? peer.addresses[0] : 'LAN'} • Port {peer.port}
-                        </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button 
+                          size="sm" 
+                          variant="primary"
+                          onClick={() => handleConnect(peer.peer_id)}
+                          className="text-xs px-4 py-1.5 font-bold shadow-md shadow-violet-500/20"
+                        >
+                          Auto-Pair
+                        </Button>
                       </div>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="primary"
-                      onClick={() => handleConnect(peer.peer_id)}
-                      className="text-xs px-4 py-1.5 shrink-0"
-                    >
-                      Connect
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -439,7 +581,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
             {recentHosts.length > 0 && (
               <div className="pt-2">
                 <span className="text-muted flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider mb-2">
-                  <LuHistory size={12} />
+                  <Icon name="history" size={12} />
                   <span>Recent Host Targets:</span>
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -454,7 +596,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                       }}
                       title={`Connect to ${host}`}
                     >
-                      <LuGlobe size={11} className="text-accent" />
+                      <Icon name="public" size={11} className="text-accent" />
                       <span className="truncate max-w-[180px]">{host}</span>
                     </button>
                   ))}
@@ -478,7 +620,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                     } catch {}
                   }}
                 >
-                  <LuClipboard size={12} />
+                  <Icon name="content_paste" size={12} />
                   <span>Paste from Clipboard</span>
                 </button>
               </div>
@@ -489,7 +631,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
                   className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-mono text-zinc-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"
                   onClick={() => setCodeInputValue(`${localIp}:8384`)}
                 >
-                  <LuWifi size={12} className="text-emerald-400" />
+                  <Icon name="wifi" size={12} className="text-emerald-400" />
                   <span>{localIp}:8384 (Local LAN)</span>
                 </button>
               </div>
@@ -507,33 +649,48 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
               </p>
             </div>
 
-            <Button 
-              variant="primary" 
-              size="sm" 
-              onClick={handleGenerateLink} 
-              className="self-start text-xs px-4"
-            >
-              <LuSparkles size={13} />
-              <span className="ml-1.5">Generate New Invitation Link</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="primary" 
+                size="sm" 
+                onClick={handleGenerateLink} 
+                className="text-xs px-4"
+              >
+                <Icon name="auto_awesome" size={13} />
+                <span className="ml-1.5">{generatedLink ? 'Regenerate Link' : 'Generate Invitation Link'}</span>
+              </Button>
 
-            {generatedLink && (
-              <div className="flex gap-2 items-center mt-2 p-3 rounded-xl bg-black/60 border border-violet-500/30">
-                <input 
-                  type="text" 
-                  className="input text-mono text-xs flex-1 bg-transparent border-none p-0 select-all" 
-                  value={generatedLink} 
-                  readOnly 
-                />
-                <Button 
-                  size="sm" 
-                  variant="primary"
-                  onClick={() => copyToClipboard(generatedLink, 'link')}
-                  className="shrink-0 text-xs px-3"
-                >
-                  {copiedLink ? <LuCheck size={14} className="text-emerald-400" /> : <LuCopy size={14} />}
-                  <span className="ml-1">{copiedLink ? 'Copied' : 'Copy'}</span>
-                </Button>
+              <span className="text-[11px] text-[var(--gc-text-muted)] font-mono">
+                Target: {tunnelUrl ? 'Cloudflare Tunnel (Global)' : `http://${localIp}:8384 (LAN)`}
+              </span>
+            </div>
+
+            {generatedLink ? (
+              <div className="flex flex-col gap-2 mt-2">
+                <div className="flex gap-2 items-center p-3 rounded-xl bg-black/60 border border-violet-500/30">
+                  <input 
+                    type="text" 
+                    className="input text-mono text-xs flex-1 bg-transparent border-none p-0 select-all" 
+                    value={generatedLink} 
+                    readOnly 
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="primary"
+                    onClick={() => copyToClipboard(generatedLink, 'link')}
+                    className="shrink-0 text-xs px-3"
+                  >
+                    {copiedLink ? <Icon name="check" size={14} className="text-emerald-400" /> : <Icon name="content_copy" size={14} />}
+                    <span className="ml-1">{copiedLink ? 'Copied' : 'Copy'}</span>
+                  </Button>
+                </div>
+                <p className="text-[11px] text-[var(--gc-text-muted)]">
+                  Copy and paste this link into the Client device's <b>Direct IP / Tunnel URL</b> tab to instantly pair and connect.
+                </p>
+              </div>
+            ) : (
+              <div className="p-3 rounded-lg bg-[var(--gc-surface-sunken)] border border-[var(--gc-border)] text-xs text-[var(--gc-text-muted)]">
+                Click <b>Generate Invitation Link</b> above to build a 1-click URL for your client laptop.
               </div>
             )}
           </div>
@@ -555,7 +712,7 @@ export const PairingPanel: React.FC<PairingPanelProps> = ({ mode }) => {
       >
         <div className="flex flex-col items-center gap-4 py-2">
           <div className="w-14 h-14 rounded-full bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-accent">
-            <LuShieldCheck size={28} />
+            <Icon name="verified_user" size={28} />
           </div>
           <p className="text-muted text-center text-xs max-w-xs leading-relaxed">
             Verify that the 6-character cryptographic verification string below matches the display on the peer machine.

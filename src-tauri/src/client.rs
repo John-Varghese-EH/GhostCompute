@@ -108,17 +108,16 @@ impl ClientConnection {
             ));
         }
         let mut ws_url = trimmed.to_string();
-        if !ws_url.starts_with("ws://") && !ws_url.starts_with("wss://") && !ws_url.starts_with("http://") && !ws_url.starts_with("https://") {
-            let is_local = ws_url.starts_with(|c: char| c.is_ascii_digit()) || ws_url.starts_with("localhost");
-            
-            if is_local && !ws_url.contains(':') {
+        let has_scheme = ws_url.starts_with("ws://") || ws_url.starts_with("wss://") || ws_url.starts_with("http://") || ws_url.starts_with("https://");
+        if !has_scheme {
+            let is_tunnel = ws_url.contains("trycloudflare.com") || ws_url.contains("cloudflareaccess.com");
+            if !ws_url.contains(':') && !is_tunnel {
                 ws_url = format!("{}:8384", ws_url);
             }
-            
-            if is_local {
-                ws_url = format!("ws://{}", ws_url);
-            } else {
+            if is_tunnel {
                 ws_url = format!("wss://{}", ws_url);
+            } else {
+                ws_url = format!("ws://{}", ws_url);
             }
         } else if let Some(stripped) = ws_url.strip_prefix("http://") {
             ws_url = format!("ws://{}", stripped);
@@ -132,16 +131,30 @@ impl ClientConnection {
             )
             .map_err(|e| ClientError::Transport(e.to_string()))?;
 
-        match tokio_tungstenite::connect_async(request).await {
-            Ok((ws_stream, _)) => {
+        let connect_timeout = tokio::time::timeout(
+            Duration::from_secs(6),
+            tokio_tungstenite::connect_async(request),
+        )
+        .await;
+
+        match connect_timeout {
+            Ok(Ok((ws_stream, _))) => {
                 use futures_util::StreamExt;
                 let (tx, rx) = ws_stream.split();
                 let tx: crate::transport::BoxSink = Box::new(tx);
                 let rx: crate::transport::BoxStream = Box::new(rx);
 
-                match transport::handshake_as_initiator(tx, rx, &noise_priv).await {
-                    Ok(mut session) => {
+                let handshake_timeout = tokio::time::timeout(
+                    Duration::from_secs(6),
+                    transport::handshake_as_initiator(tx, rx, &noise_priv),
+                )
+                .await;
+
+                match handshake_timeout {
+                    Ok(Ok(mut session)) => {
                         let remote_id = session.peer_id().to_string();
+                        self.last_peer_id = Some(remote_id.clone());
+                        self.last_address = Some(ws_url.clone());
                         
                         let (tx_send, mut rx_send) = mpsc::channel::<Vec<u8>>(100);
                         self.sender = Some(tx_send);
@@ -215,15 +228,32 @@ impl ClientConnection {
                         };
                         Ok(())
                     }
-                    Err(e) => {
+                    Ok(Err(e)) => {
                         self.status = ConnectionStatus::Disconnected;
-                        Err(ClientError::Transport(e.to_string()))
+                        Err(ClientError::Transport(format!("Noise cryptographic handshake failed: {}", e)))
+                    }
+                    Err(_) => {
+                        self.status = ConnectionStatus::Disconnected;
+                        Err(ClientError::Transport(format!("Cryptographic handshake timed out with {}. The host did not reply.", ws_url)))
                     }
                 }
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 self.status = ConnectionStatus::Disconnected;
-                Err(ClientError::Transport(e.to_string()))
+                let err_str = e.to_string();
+                let friendly = if err_str.contains("refused") || err_str.contains("10061") || err_str.contains("111") {
+                    format!("Connection refused by {}. Verify that GhostCompute is actively running in Server Mode on the Host PC and port 8384 is allowed through Windows Firewall.", ws_url)
+                } else {
+                    format!("Failed to connect to {}: {}", ws_url, err_str)
+                };
+                Err(ClientError::Transport(friendly))
+            }
+            Err(_) => {
+                self.status = ConnectionStatus::Disconnected;
+                Err(ClientError::Transport(format!(
+                    "Connection to {} timed out after 6 seconds. If connecting over Wi-Fi, ensure Windows Defender Firewall allows port 8384. If on another network, use the Cloudflare Tunnel URL.",
+                    ws_url
+                )))
             }
         }
     }

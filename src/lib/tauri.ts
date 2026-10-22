@@ -228,6 +228,8 @@ export const stopHosting = () => safeInvoke<void>('stop_hosting');
 export const getActiveSessions = () => safeInvoke<SessionInfo[]>('get_active_sessions');
 export const killSession = (peer_id: string) => safeInvoke<void>('kill_session', { peer_id });
 export const killAllSessions = () => safeInvoke<void>('kill_all_sessions');
+export const getActiveTunnelUrl = () => safeInvoke<string | null>('get_active_tunnel_url');
+export const startQuickTunnel = () => safeInvoke<string>('start_quick_tunnel');
 
 // Ollama
 export const getOllamaStatus = () => safeInvoke<OllamaStatus>('get_ollama_status');

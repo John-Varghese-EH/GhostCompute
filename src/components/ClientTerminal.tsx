@@ -1,30 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  LuMessageSquare, 
-  LuBox, 
-  LuActivity, 
-  LuSend, 
-  LuUser, 
-  LuCpu, 
-  LuWifi, 
-  LuWifiOff,
-  LuSparkles,
-  LuRadio,
-  LuTrash2,
-  LuCopy,
-  LuCheck,
-  LuSlidersHorizontal,
-  LuDownload,
-  LuShieldCheck,
-  LuTerminal,
-  LuLayers,
-  LuCode,
-  LuX,
-  LuGlobe,
-  LuChevronRight,
-  LuFlame,
-  LuZap
-} from 'react-icons/lu';
+import { Icon } from './common/Icon';
 import { useConnection } from '../hooks/useConnection';
 import { getRemoteModels, getPairedDevices } from '../lib/tauri';
 import { useDiscovery } from '../hooks/useDiscovery';
@@ -38,7 +13,6 @@ import { IntegrationsPanel } from './IntegrationsPanel';
 import { ResourceMonitor } from './ResourceMonitor';
 import { AgentShortcutsPanel } from './AgentShortcutsPanel';
 import { connectToHost } from '../lib/tauri';
-import { LuBot } from 'react-icons/lu';
 import { Logo } from './common/Logo';
 import { ThemeToggle } from './common/ThemeToggle';
 import { CustomSelect } from './common/CustomSelect';
@@ -101,28 +75,28 @@ const PROMPT_STARTERS: PromptStarter[] = [
     category: 'Security & QA',
     description: 'Check for memory safety, concurrency bugs, and OWASP vulnerabilities.',
     prompt: 'Review the following code for memory safety, concurrency issues, edge cases, and OWASP security vulnerabilities:\n\n```rust\n// Paste code here\n```',
-    icon: <LuShieldCheck size={18} className="text-accent" />,
+    icon: <Icon name="verified_user" size={18} className="text-accent" />,
   },
   {
     title: 'Unit Tests with Edge Cases',
     category: 'Testing',
     description: 'Generate comprehensive unit tests covering boundary conditions and mocks.',
     prompt: 'Write comprehensive unit tests covering happy paths, error handling, and boundary edge cases for this component:\n\n',
-    icon: <LuTerminal size={18} className="text-accent" />,
+    icon: <Icon name="terminal" size={18} className="text-accent" />,
   },
   {
     title: 'Distributed System Architecture',
     category: 'Architecture',
     description: 'Design a scalable, fault-tolerant microservice and data pipeline.',
     prompt: 'Architect a high-performance, fault-tolerant distributed system for:\n- Requirements: \n- Scale: \n- Key Constraints: ',
-    icon: <LuLayers size={18} className="text-accent" />,
+    icon: <Icon name="layers" size={18} className="text-accent" />,
   },
   {
     title: 'DevOps & Shell Automation',
     category: 'Infrastructure',
     description: 'Write an idempotent, hardened bash deployment script with error traps.',
     prompt: 'Write an automated, idempotent bash deployment script with strict error handling (`set -euo pipefail`) and health checks for:\n\n',
-    icon: <LuCode size={18} className="text-accent" />,
+    icon: <Icon name="code" size={18} className="text-accent" />,
   },
 ];
 
@@ -361,7 +335,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
           
           <Badge variant={isConnected ? 'success' : 'neutral'} className="hidden sm:inline-flex">
             <span className="flex items-center gap-1">
-              {isConnected ? <LuWifi size={11} /> : <LuWifiOff size={11} />}
+              {isConnected ? <Icon name="wifi" size={11} /> : <Icon name="wifi_off" size={11} />}
               <span>{isConnected ? 'ENCRYPTED' : 'OFFLINE'}</span>
             </span>
           </Badge>
@@ -375,7 +349,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
               className={`segmented-item ${activeTab === 'chat' ? 'active' : ''}`}
               title="Remote AI Chat Terminal"
             >
-              <LuMessageSquare size={13} />
+              <Icon name="chat" size={13} />
               <span className="hidden lg:inline">Chat</span>
             </button>
             <button
@@ -383,7 +357,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
               className={`segmented-item ${activeTab === 'agents' ? 'active' : ''}`}
               title="Autonomous Agents & Quick Tool Presets"
             >
-              <LuBot size={13} />
+              <Icon name="smart_toy" size={13} />
               <span className="hidden lg:inline">Agents</span>
             </button>
             <button
@@ -391,7 +365,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
               className={`segmented-item ${activeTab === 'pairing' ? 'active' : ''}`}
               title="Pairing, Network Discovery & Remote Nodes"
             >
-              <LuRadio size={13} className={isConnecting ? 'breathe-pulse text-accent' : ''} />
+              <Icon name="sensors" size={13} className={isConnecting ? 'breathe-pulse text-accent' : ''} />
               <span className="hidden lg:inline">Pairing</span>
             </button>
             <button
@@ -399,7 +373,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
               className={`segmented-item ${activeTab === 'integrations' ? 'active' : ''}`}
               title="Tool Integrations & Quick Start configs"
             >
-              <LuBox size={13} />
+              <Icon name="widgets" size={13} />
               <span className="hidden lg:inline">Integrations</span>
             </button>
             <button
@@ -407,7 +381,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
               className={`segmented-item ${activeTab === 'telemetry' ? 'active' : ''}`}
               title="System Telemetry & VRAM Usage"
             >
-              <LuActivity size={13} />
+              <Icon name="vital_signs" size={13} />
               <span className="hidden lg:inline">Telemetry</span>
             </button>
           </nav>
@@ -423,7 +397,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
               }}
               title="Toggle Prompt Studio & Parameter tuning drawer"
             >
-              <LuSlidersHorizontal size={13} />
+              <Icon name="tune" size={13} />
               <span className="hidden sm:inline">Studio</span>
               {selectedPersona.id !== 'general' && (
                 <span className="badge badge-info" style={{ fontSize: '9.5px', padding: '1px 5px' }}>
@@ -503,7 +477,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                       marginBottom: 'var(--gc-space-md)'
                     }}
                   >
-                    <LuSparkles size={26} />
+                    <Icon name="auto_awesome" size={26} />
                   </div>
                   <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '6px' }}>Remote Compute Terminal</h3>
                   <p className="text-muted" style={{ fontSize: '13px', maxWidth: '440px', lineHeight: 1.5, marginBottom: 'var(--gc-space-lg)' }}>
@@ -514,7 +488,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
 
                   {!isConnected ? (
                     <Button onClick={() => setActiveTab('pairing')} className="flex items-center gap-xs">
-                      <LuRadio size={14} />
+                      <Icon name="sensors" size={14} />
                       <span>Connect to Host Laptop</span>
                     </Button>
                   ) : (
@@ -545,7 +519,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                           </div>
                           <div className="text-[13.5px] font-semibold text-[var(--gc-text)] mt-1 tracking-tight flex items-center justify-between">
                             <span>{starter.title}</span>
-                            <LuChevronRight size={14} className="text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <Icon name="chevron_right" size={14} className="text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
                           <p className="text-muted text-[12px] leading-relaxed m-0">
                             {starter.description}
@@ -573,7 +547,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                           borderRadius: 'var(--gc-squircle-badge)'
                         }}
                       >
-                        <LuSparkles size={10} />
+                        <Icon name="auto_awesome" size={10} />
                         <span>{selectedPersona.name}</span>
                       </span>
                     )}
@@ -590,7 +564,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                       }}
                       title="Download full conversation transcript as Markdown (.md)"
                     >
-                      <LuDownload size={12} />
+                      <Icon name="download" size={12} />
                       <span>Export .md</span>
                     </button>
                     <button 
@@ -603,7 +577,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                       }}
                       title="Clear session history"
                     >
-                      <LuTrash2 size={12} />
+                      <Icon name="delete" size={12} />
                       <span>Clear</span>
                     </button>
                   </div>
@@ -624,7 +598,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                   <div className="flex items-center gap-1.5 text-muted text-[11px] mb-1 px-1">
                     {msg.role === 'user' ? (
                       <>
-                        <LuUser size={12} />
+                        <Icon name="person" size={12} />
                         <span className="font-medium">You</span>
                         <span className="text-[10px] text-dim font-mono">
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -632,7 +606,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                       </>
                     ) : (
                       <>
-                        <LuCpu size={12} className="text-accent" />
+                        <Icon name="memory" size={12} className="text-accent" />
                         <span className="font-medium">Host Compute Node</span>
                         <span className="text-[10px] text-dim font-mono">
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -657,7 +631,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                         style={{ borderColor: 'var(--gc-border)' }}
                       >
                         <span className="text-[10.5px] text-dim font-mono flex items-center gap-1">
-                          <LuZap size={10} className="text-accent" />
+                          <Icon name="bolt" size={10} className="text-accent" />
                           <span>{selectedModel || 'GPU Node'}</span>
                         </span>
                         <div className="flex items-center gap-1">
@@ -677,7 +651,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                               color: copiedMsgId === (msg.id || `${i}`) ? 'var(--gc-success)' : undefined
                             }}
                           >
-                            {copiedMsgId === (msg.id || `${i}`) ? <LuCheck size={11} className="text-success" /> : <LuCopy size={11} />}
+                            {copiedMsgId === (msg.id || `${i}`) ? <Icon name="check" size={11} className="text-success" /> : <Icon name="content_copy" size={11} />}
                             <span>{copiedMsgId === (msg.id || `${i}`) ? 'Copied' : 'Copy'}</span>
                           </button>
                         </div>
@@ -776,9 +750,9 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                       }}
                       title="Click to copy local OpenAI proxy endpoint (127.0.0.1:11434)"
                     >
-                      <LuGlobe size={11} />
+                      <Icon name="public" size={11} />
                       <span>:11434</span>
-                      {copiedProxy && <LuCheck size={11} className="text-success" />}
+                      {copiedProxy && <Icon name="check" size={11} className="text-success" />}
                     </button>
 
                     <Button 
@@ -792,7 +766,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                         fontSize: '12.5px'
                       }}
                     >
-                      <LuSend size={13} />
+                      <Icon name="send" size={13} />
                       <span>Send</span>
                     </Button>
                   </div>
@@ -810,7 +784,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                 style={{ borderColor: 'var(--gc-border)' }}
               >
                 <div className="flex items-center gap-1.5">
-                  <LuSlidersHorizontal size={14} className="text-accent" />
+                  <Icon name="tune" size={14} className="text-accent" />
                   <span className="text-[13px] font-semibold text-[var(--gc-text)]">Prompt Studio</span>
                 </div>
                 <button 
@@ -819,7 +793,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                   style={{ padding: '4px', border: 'none', borderRadius: 'var(--gc-squircle-sm)' }}
                   title="Close Studio"
                 >
-                  <LuX size={15} />
+                  <Icon name="close" size={15} />
                 </button>
               </div>
 
@@ -852,7 +826,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                       >
                         <div className="flex justify-between items-center w-full mb-0.5">
                           <span className="text-[12.5px] font-semibold text-[var(--gc-text)]">{p.name}</span>
-                          {selectedPersona.id === p.id && <LuCheck size={13} className="text-accent" />}
+                          {selectedPersona.id === p.id && <Icon name="check" size={13} className="text-accent" />}
                         </div>
                         <span className="text-muted text-[11px] leading-tight">{p.description}</span>
                       </button>
@@ -879,7 +853,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                       }}
                     >
                       <span>Custom System Directive</span>
-                      {selectedPersona.id === 'custom' && <LuCheck size={12} className="text-accent" />}
+                      {selectedPersona.id === 'custom' && <Icon name="check" size={12} className="text-accent" />}
                     </button>
 
                     {selectedPersona.id === 'custom' && (
@@ -902,7 +876,7 @@ export const ClientTerminal: React.FC<ClientTerminalProps> = ({ onResetRole }) =
                 <div className="flex flex-col gap-1.5 pt-2 border-t" style={{ borderColor: 'var(--gc-border)' }}>
                   <div className="flex justify-between items-center">
                     <label className="text-[11px] font-bold text-muted uppercase tracking-wider flex items-center gap-1">
-                      <LuFlame size={12} className="text-accent" />
+                      <Icon name="local_fire_department" size={12} className="text-accent" />
                       <span>Temperature</span>
                     </label>
                     <span className="text-mono text-[12px] font-semibold text-accent">

@@ -1,23 +1,5 @@
 import React, { useState } from 'react';
-import { 
-  Bot, 
-  Check, 
-  Copy, 
-  AlertCircle, 
-  Wifi, 
-  WifiOff, 
-  Globe,
-  Terminal,
-  Cpu,
-  Image,
-  Zap,
-  Brain,
-  Boxes,
-  Share2,
-  Network,
-  Code2,
-  Database
-} from 'lucide-react';
+import { Icon } from './common/Icon';
 import { Button } from './common/Button';
 import { Badge } from './common/Badge';
 import { IconBadge } from './common/IconBadge';
@@ -81,7 +63,7 @@ export const AgentShortcutsPanel: React.FC<AgentShortcutsPanelProps> = ({
       {/* Header */}
       <div>
         <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-          <Bot size={22} className="text-violet-400" />
+          <Icon name="smart_toy" size={22} className="text-violet-400" />
           <span>Smart Agent & Coding Assistant Auto-Config</span>
         </h2>
         <p className="text-sm text-zinc-400 mt-1">
@@ -96,7 +78,7 @@ export const AgentShortcutsPanel: React.FC<AgentShortcutsPanelProps> = ({
           : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
       }`}>
         <div className="flex items-center gap-3">
-          {isConnected ? <Wifi size={18} /> : <WifiOff size={18} />}
+          {isConnected ? <Icon name="wifi" size={18} /> : <Icon name="wifi_off" size={18} />}
           <div>
             <div className="text-sm font-semibold">
               {isConnected ? 'Local Proxy Active (127.0.0.1:11434)' : 'Host Disconnected'}
@@ -123,7 +105,7 @@ export const AgentShortcutsPanel: React.FC<AgentShortcutsPanelProps> = ({
             <div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <IconBadge icon={<Terminal size={17} />} variant="amber" size="md" className="group-hover:scale-105" />
+                  <IconBadge icon={<Icon name="terminal" size={17} />} variant="amber" size="md" className="group-hover:scale-105" />
                   <div>
                     <h3 className="text-sm font-bold text-[var(--gc-text)] group-hover:text-accent transition-colors">Claude Code</h3>
                     <div className="text-[11px] text-[var(--gc-text-muted)] font-mono">Terminal CLI Agent</div>
@@ -144,7 +126,7 @@ export const AgentShortcutsPanel: React.FC<AgentShortcutsPanelProps> = ({
                   className="p-1.5 rounded-lg hover:bg-[var(--gc-border)] text-[var(--gc-text-muted)] hover:text-[var(--gc-text)] transition-colors cursor-pointer"
                   title="Copy shell export command"
                 >
-                  {copiedKey === 'claude' ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                  {copiedKey === 'claude' ? <Icon name="check" size={14} className="text-emerald-400" /> : <Icon name="content_copy" size={14} />}
                 </button>
               </div>
               <div className="text-[11px] text-[var(--gc-text-muted)]">
@@ -160,7 +142,7 @@ export const AgentShortcutsPanel: React.FC<AgentShortcutsPanelProps> = ({
             <div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <IconBadge icon={<Cpu size={17} />} variant="accent" size="md" className="group-hover:scale-105" />
+                  <IconBadge icon={<Icon name="memory" size={17} />} variant="accent" size="md" className="group-hover:scale-105" />
                   <div>
                     <h3 className="text-sm font-bold text-[var(--gc-text)] group-hover:text-accent transition-colors">Antigravity & Cursor</h3>
                     <div className="text-[11px] text-[var(--gc-text-muted)] font-mono">OpenAI /v1 Compatible</div>
@@ -181,7 +163,7 @@ export const AgentShortcutsPanel: React.FC<AgentShortcutsPanelProps> = ({
                   className="p-1.5 rounded-lg hover:bg-[var(--gc-border)] text-[var(--gc-text-muted)] hover:text-[var(--gc-text)] transition-colors cursor-pointer"
                   title="Copy Base URL"
                 >
-                  {copiedKey === 'cursor' ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                  {copiedKey === 'cursor' ? <Icon name="check" size={14} className="text-emerald-400" /> : <Icon name="content_copy" size={14} />}
                 </button>
               </div>
               <div className="text-[11px] text-[var(--gc-text-muted)]">
@@ -196,7 +178,7 @@ export const AgentShortcutsPanel: React.FC<AgentShortcutsPanelProps> = ({
       <div className="flex flex-col gap-3">
         <div>
           <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Globe size={18} className="text-violet-400" />
+            <Icon name="public" size={18} className="text-violet-400" />
             <span>Heavy Web-UI Shortcuts (Connection-Aware Routing)</span>
           </h3>
           <p className="text-xs text-muted mt-0.5">
@@ -206,15 +188,15 @@ export const AgentShortcutsPanel: React.FC<AgentShortcutsPanelProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {[
-            { name: 'Open WebUI', port: 3000, desc: 'Chat, model weights & RAG workspace', icon: <Globe size={18} />, variant: 'blue' as const },
-            { name: 'ComfyUI', port: 8188, desc: 'Stable Diffusion node workflows', icon: <Image size={18} />, variant: 'rose' as const },
-            { name: 'n8n', port: 5678, desc: 'Self-hosted AI agent workflows', icon: <Zap size={18} />, variant: 'amber' as const },
-            { name: 'AnythingLLM', port: 3001, desc: 'Full RAG document search workspace', icon: <Brain size={18} />, variant: 'blue' as const },
-            { name: 'Dify', port: 3100, desc: 'Visual LLM application & agent platform', icon: <Boxes size={18} />, variant: 'amber' as const },
-            { name: 'Flowise', port: 3002, desc: 'Drag-and-drop LLM orchestration flows', icon: <Share2 size={18} />, variant: 'accent' as const },
-            { name: 'Langflow', port: 7860, desc: 'Multi-agent visual framework', icon: <Network size={18} />, variant: 'accent' as const },
-            { name: 'Tabby', port: 8082, desc: 'Self-hosted code assistant web dashboard', icon: <Code2 size={18} />, variant: 'emerald' as const },
-            { name: 'Qdrant', port: 6333, desc: 'High-performance vector memory database', path: '/dashboard', icon: <Database size={18} />, variant: 'emerald' as const },
+            { name: 'Open WebUI', port: 3000, desc: 'Chat, model weights & RAG workspace', icon: <Icon name="public" size={18} />, variant: 'blue' as const },
+            { name: 'ComfyUI', port: 8188, desc: 'Stable Diffusion node workflows', icon: <Icon name="image" size={18} />, variant: 'rose' as const },
+            { name: 'n8n', port: 5678, desc: 'Self-hosted AI agent workflows', icon: <Icon name="bolt" size={18} />, variant: 'amber' as const },
+            { name: 'AnythingLLM', port: 3001, desc: 'Full RAG document search workspace', icon: <Icon name="psychology" size={18} />, variant: 'blue' as const },
+            { name: 'Dify', port: 3100, desc: 'Visual LLM application & agent platform', icon: <Icon name="widgets" size={18} />, variant: 'amber' as const },
+            { name: 'Flowise', port: 3002, desc: 'Drag-and-drop LLM orchestration flows', icon: <Icon name="share" size={18} />, variant: 'accent' as const },
+            { name: 'Langflow', port: 7860, desc: 'Multi-agent visual framework', icon: <Icon name="hub" size={18} />, variant: 'accent' as const },
+            { name: 'Tabby', port: 8082, desc: 'Self-hosted code assistant web dashboard', icon: <Icon name="code" size={18} />, variant: 'emerald' as const },
+            { name: 'Qdrant', port: 6333, desc: 'High-performance vector memory database', path: '/dashboard', icon: <Icon name="database" size={18} />, variant: 'emerald' as const },
           ].map(tool => (
             <div key={tool.name} className="double-bezel group hover:border-violet-500/30 transition-all">
               <div className="double-bezel-inner p-3.5 flex flex-col justify-between h-full bg-[#0d0d16]">
@@ -256,7 +238,7 @@ export const AgentShortcutsPanel: React.FC<AgentShortcutsPanelProps> = ({
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-6">
           <div className="w-full max-w-md rounded-2xl bg-zinc-950 border border-amber-500/30 p-6 flex flex-col items-center text-center shadow-2xl">
             <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4">
-              <AlertCircle size={24} />
+              <Icon name="warning" size={24} />
             </div>
             <h3 className="text-lg font-bold text-white">GhostCompute Server Offline</h3>
             <p className="text-xs text-zinc-400 mt-2 leading-relaxed">

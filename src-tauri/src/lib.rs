@@ -52,6 +52,7 @@ pub struct AppState {
     pub settings: Arc<Mutex<SettingsStore>>,
     pub api_proxy: Arc<Mutex<ApiProxyHandle>>,
     pub orchestrator: Arc<crate::orchestrator::Orchestrator>,
+    pub active_tunnel_url: Arc<Mutex<Option<String>>>,
 }
 
 // -- Discovery commands --
@@ -65,7 +66,10 @@ async fn get_discovered_peers(
 }
 
 #[tauri::command]
-async fn start_discovery(state: tauri::State<'_, AppState>) -> Result<(), String> {
+async fn start_discovery(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
     let mut mdns_lock = state.mdns.lock().await;
     if mdns_lock.is_none() {
         let handle = MdnsHandle::new().map_err(|e| format!("{}", e))?;
@@ -77,24 +81,35 @@ async fn start_discovery(state: tauri::State<'_, AppState>) -> Result<(), String
     let mut rx = mdns.browse_peers(own_id).map_err(|e| format!("{}", e))?;
 
     let peers = state.discovered_peers.clone();
+    let app_handle = app.clone();
     tokio::spawn(async move {
         while let Some(event) = rx.recv().await {
             let mut peer_list = peers.lock().await;
+            let mut changed = false;
             match event {
                 discovery::DiscoveryEvent::PeerFound(peer) => {
                     if let Some(existing) = peer_list.iter_mut().find(|p| p.peer_id == peer.peer_id) {
                         for addr in peer.addresses {
                             if !existing.addresses.contains(&addr) {
                                 existing.addresses.push(addr);
+                                changed = true;
                             }
                         }
                     } else {
                         peer_list.push(peer);
+                        changed = true;
                     }
                 }
                 discovery::DiscoveryEvent::PeerLost(id) => {
+                    let before = peer_list.len();
                     peer_list.retain(|p| p.peer_id != id);
+                    if peer_list.len() != before {
+                        changed = true;
+                    }
                 }
+            }
+            if changed {
+                let _ = app_handle.emit("peers-changed", ());
             }
         }
     });
@@ -119,8 +134,42 @@ async fn get_pairing_state(state: tauri::State<'_, AppState>) -> Result<PairingS
     Ok(s.clone())
 }
 
+fn prioritize_addresses(addrs: &[String]) -> Vec<String> {
+    let mut sorted = addrs.to_vec();
+    sorted.sort_by(|a, b| {
+        let a_ip: Option<std::net::IpAddr> = a.parse().ok();
+        let b_ip: Option<std::net::IpAddr> = b.parse().ok();
+
+        let rank = |ip_opt: Option<std::net::IpAddr>| -> u8 {
+            match ip_opt {
+                Some(std::net::IpAddr::V4(v4)) => {
+                    let octets = v4.octets();
+                    // Deprioritize WSL2/Hyper-V/Docker defaults (172.17-31.x.x) or link-local (169.254.x.x)
+                    if octets[0] == 169 && octets[1] == 254 {
+                        4
+                    } else if octets[0] == 172 && (17..=31).contains(&octets[1]) {
+                        3
+                    } else if octets[0] == 192 && octets[1] == 168 {
+                        0 // High priority standard home/office LAN
+                    } else if octets[0] == 10 {
+                        1 // High priority 10.x.x.x LAN
+                    } else {
+                        2
+                    }
+                }
+                Some(std::net::IpAddr::V6(_)) => 5, // Deprioritize IPv6 for local home LAN
+                None => 6,
+            }
+        };
+
+        rank(a_ip).cmp(&rank(b_ip))
+    });
+    sorted
+}
+
 #[tauri::command]
 async fn initiate_pairing(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     peer_id: String,
 ) -> Result<(), String> {
@@ -132,17 +181,38 @@ async fn initiate_pairing(
         .clone();
     drop(peers);
 
-    let address = peer
-        .addresses
-        .first()
-        .ok_or_else(|| "No address available for peer".to_string())?;
+    let candidate_addrs = prioritize_addresses(&peer.addresses);
+    if candidate_addrs.is_empty() {
+        return Err("No network address available for discovered peer".to_string());
+    }
 
     let mut client = state.client.lock().await;
     let noise_priv = state.identity.noise_private;
-    client
-        .connect(noise_priv, &peer_id, address, peer.port)
-        .await
-        .map_err(|e| format!("{}", e))?;
+    let mut last_err = String::new();
+    let mut connected = false;
+
+    for addr in &candidate_addrs {
+        log::info!("[Pairing] Attempting initiate_pairing with peer {} at {}:{}", peer_id, addr, peer.port);
+        match client.connect(noise_priv, &peer_id, addr, peer.port).await {
+            Ok(_) => {
+                connected = true;
+                break;
+            }
+            Err(e) => {
+                log::warn!("[Pairing] Failed to connect to {}:{}: {}", addr, peer.port, e);
+                last_err = format!("{}", e);
+            }
+        }
+    }
+
+    if !connected {
+        let mut ps = state.pairing_state.lock().await;
+        *ps = crate::pairing::PairingState::Failed {
+            reason: format!("Failed to reach host across {} IP addresses: {}", candidate_addrs.len(), last_err),
+        };
+        let _ = app.emit("pairing-state-changed", ());
+        return Err(format!("Could not connect to host ({})", last_err));
+    }
 
     let payload = serde_json::json!({
         "action": "pair"
@@ -163,6 +233,7 @@ async fn initiate_pairing(
                 peer_id: peer_id.clone(),
                 device_name: peer.device_name.clone(),
             };
+            let _ = app.emit("pairing-state-changed", ());
             return Ok(());
         }
     } else if resp.get("action").and_then(|a| a.as_str()) == Some("pair_ok") {
@@ -172,23 +243,30 @@ async fn initiate_pairing(
             .map_err(|e| format!("{}", e))?;
         let mut ps = state.pairing_state.lock().await;
         *ps = crate::pairing::PairingState::Completed { peer_id };
+        let _ = app.emit("pairing-state-changed", ());
         return Ok(());
     }
 
     let mut ps = state.pairing_state.lock().await;
     *ps = crate::pairing::PairingState::Failed {
-        reason: "Pairing failed".into(),
+        reason: "Pairing handshake rejected by host".into(),
     };
-    Err("Pairing failed".into())
+    let _ = app.emit("pairing-state-changed", ());
+    Err("Pairing rejected".into())
 }
 
 #[tauri::command]
-async fn confirm_pairing(state: tauri::State<'_, AppState>, confirmed: bool) -> Result<(), String> {
+async fn confirm_pairing(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    confirmed: bool,
+) -> Result<(), String> {
     let mut ps = state.pairing_state.lock().await;
     if !confirmed {
         *ps = PairingState::Failed {
             reason: "Pairing rejected by user".to_string(),
         };
+        let _ = app.emit("pairing-state-changed", ());
         return Ok(());
     }
     if let PairingState::AwaitingConfirmation {
@@ -203,6 +281,7 @@ async fn confirm_pairing(state: tauri::State<'_, AppState>, confirmed: bool) -> 
             .add_peer(&peer_id, &device_name, &noise_key)
             .map_err(|e| format!("{}", e))?;
         *ps = PairingState::Completed { peer_id };
+        let _ = app.emit("pairing-state-changed", ());
     }
     Ok(())
 }
@@ -218,17 +297,19 @@ async fn generate_pairing_code(state: tauri::State<'_, AppState>) -> Result<Stri
 
 #[tauri::command]
 async fn submit_pairing_code(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     code: String,
 ) -> Result<bool, String> {
     let peers = state.discovered_peers.lock().await.clone();
 
     for peer in peers {
-        if let Some(address) = peer.addresses.first() {
+        let candidate_addrs = prioritize_addresses(&peer.addresses);
+        for address in candidate_addrs {
             let mut client = state.client.lock().await;
             let noise_priv = state.identity.noise_private;
             if client
-                .connect(noise_priv, &peer.peer_id, address, peer.port)
+                .connect(noise_priv, &peer.peer_id, &address, peer.port)
                 .await
                 .is_ok()
             {
@@ -248,6 +329,7 @@ async fn submit_pairing_code(
                             *ps = crate::pairing::PairingState::Completed {
                                 peer_id: peer.peer_id.clone(),
                             };
+                            let _ = app.emit("pairing-state-changed", ());
                             return Ok(true);
                         }
                     }
@@ -261,15 +343,40 @@ async fn submit_pairing_code(
     *ps = crate::pairing::PairingState::Failed {
         reason: "Code invalid or peer not found".into(),
     };
+    let _ = app.emit("pairing-state-changed", ());
     Ok(false)
 }
 
 #[tauri::command]
 async fn generate_pairing_link(state: tauri::State<'_, AppState>) -> Result<String, String> {
     let settings = state.settings.lock().await.get();
-    let host_url = settings.cloudflare_tunnel_url;
     
-    let link = pairing::generate_pairing_link(host_url);
+    // Check in order: 1) Configured ZeroTrust tunnel URL, 2) Active free Quick Tunnel URL, 3) LAN IP
+    let host_url = if let Some(ref cf) = settings.cloudflare_tunnel_url {
+        if !cf.trim().is_empty() {
+            Some(cf.clone())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let effective_url = match host_url {
+        Some(url) => url,
+        None => {
+            let active_tun = state.active_tunnel_url.lock().await.clone();
+            match active_tun {
+                Some(url) => url,
+                None => {
+                    let lan_ip = get_local_ip().unwrap_or_else(|_| "127.0.0.1".to_string());
+                    format!("http://{}:{}", lan_ip, settings.host_port)
+                }
+            }
+        }
+    };
+    
+    let link = pairing::generate_pairing_link(Some(effective_url));
     let url = link.url.clone();
     let mut lock = state.pairing_link.lock().await;
     *lock = Some(link);
@@ -335,10 +442,12 @@ async fn start_hosting(
         *mdns_lock = Some(handle);
     }
     if let Some(mdns) = mdns_lock.as_mut() {
-        if let Err(e) = mdns.start_advertising(state.identity.peer_id().as_str(), "GhostCompute", port) {
+        let dev_name = crate::identity::NodeIdentity::device_name();
+        let display_name = format!("GhostCompute ({})", dev_name);
+        if let Err(e) = mdns.start_advertising(state.identity.peer_id().as_str(), &display_name, port) {
             log::warn!("[mDNS] Failed to start advertising service on LAN: {}", e);
         } else {
-            log::info!("[mDNS] Broadcasting GhostCompute node on port {}", port);
+            log::info!("[mDNS] Broadcasting '{}' on port {}", display_name, port);
         }
     }
 
@@ -352,7 +461,7 @@ async fn is_hosting(state: tauri::State<'_, AppState>) -> Result<bool, String> {
 }
 
 #[tauri::command]
-async fn stop_hosting(state: tauri::State<'_, AppState>) -> Result<(), String> {
+async fn stop_hosting(state: tauri::State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<(), String> {
     let mut server = state.server.lock().await;
     server.stop().await;
 
@@ -360,6 +469,12 @@ async fn stop_hosting(state: tauri::State<'_, AppState>) -> Result<(), String> {
     if let Some(mdns) = mdns_lock.as_mut() {
         let _ = mdns.stop_advertising();
     }
+
+    let mut tun = state.active_tunnel_url.lock().await;
+    *tun = None;
+
+    let _ = app_handle.emit("tunnel-url-cleared", ());
+    let _ = app_handle.emit("tunnel-url-ready", "");
 
     Ok(())
 }
@@ -386,6 +501,23 @@ async fn kill_all_sessions(state: tauri::State<'_, AppState>) -> Result<(), Stri
     Ok(())
 }
 
+#[tauri::command]
+async fn get_active_tunnel_url(state: tauri::State<'_, AppState>) -> Result<Option<String>, String> {
+    let tun = state.active_tunnel_url.lock().await;
+    Ok(tun.clone())
+}
+
+#[tauri::command]
+async fn start_quick_tunnel(
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    let mut server = state.server.lock().await;
+    let settings = state.settings.lock().await.get();
+    server.spawn_tunnel(settings.host_port, None, &app_handle).await?;
+    Ok("Quick tunnel starting".to_string())
+}
+
 // -- Client commands --
 
 #[tauri::command]
@@ -394,29 +526,51 @@ async fn connect_to_host(state: tauri::State<'_, AppState>, peer_id: String) -> 
     let peer = peers
         .iter()
         .find(|p| p.peer_id == peer_id)
-        .ok_or_else(|| "Peer not found".to_string())?;
+        .ok_or_else(|| "Peer not found".to_string())?
+        .clone();
+    drop(peers);
 
-    let address = peer
-        .addresses
-        .first()
-        .ok_or_else(|| "No address available for peer".to_string())?;
+    let candidate_addrs = prioritize_addresses(&peer.addresses);
+    if candidate_addrs.is_empty() {
+        return Err("No address available for peer".to_string());
+    }
 
     let mut client = state.client.lock().await;
     let noise_priv = state.identity.noise_private;
-    client
-        .connect(noise_priv, &peer_id, address, peer.port)
-        .await
-        .map_err(|e| format!("{}", e))
+    let mut last_err = String::new();
+
+    for addr in &candidate_addrs {
+        log::info!("[Client] Trying host {}:{}", addr, peer.port);
+        match client.connect(noise_priv, &peer_id, addr, peer.port).await {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+                log::warn!("[Client] Failed connecting to {}:{}: {}", addr, peer.port, e);
+                last_err = format!("{}", e);
+            }
+        }
+    }
+
+    Err(format!(
+        "Could not connect to host across {} IP addresses: {}",
+        candidate_addrs.len(),
+        last_err
+    ))
 }
 
 #[tauri::command]
-async fn connect_to_url(state: tauri::State<'_, AppState>, url: String) -> Result<(), String> {
+async fn connect_to_url(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    url: String,
+) -> Result<(), String> {
     let mut client = state.client.lock().await;
     let noise_priv = state.identity.noise_private;
     client
         .connect_url(noise_priv, &url)
         .await
         .map_err(|e| format!("{}", e))?;
+
+    let remote_id = client.last_peer_id().unwrap_or_else(|| "remote-host".to_string());
 
     let mut token = None;
     if let Ok(parsed) = url::Url::parse(&url) {
@@ -445,25 +599,41 @@ async fn connect_to_url(state: tauri::State<'_, AppState>, url: String) -> Resul
         serde_json::from_slice(&resp_bytes).map_err(|e| format!("{}", e))?;
         
     if resp.get("action").and_then(|a| a.as_str()) == Some("pair_ok") {
+        let store = state.peer_store.lock().await;
+        let _ = store.add_peer(&remote_id, &url, &remote_id);
+        let mut ps = state.pairing_state.lock().await;
+        *ps = crate::pairing::PairingState::Completed { peer_id: remote_id };
+        let _ = app.emit("pairing-state-changed", ());
         return Ok(());
     } else if resp.get("action").and_then(|a| a.as_str()) == Some("pair_sas") {
         if let Some(sas) = resp.get("sas").and_then(|s| s.as_str()) {
             let mut ps = state.pairing_state.lock().await;
             *ps = crate::pairing::PairingState::AwaitingConfirmation {
                 sas: sas.to_string(),
-                peer_id: client.last_peer_id().unwrap_or_default(),
-                device_name: "URL Connection".to_string(),
+                peer_id: remote_id.clone(),
+                device_name: format!("Host ({})", url),
             };
+            let _ = app.emit("pairing-state-changed", ());
             return Ok(());
         }
     }
     
     if let Some(err) = resp.get("error").and_then(|e| e.as_str()) {
         let _ = client.disconnect().await;
+        let mut ps = state.pairing_state.lock().await;
+        *ps = crate::pairing::PairingState::Failed {
+            reason: err.to_string(),
+        };
+        let _ = app.emit("pairing-state-changed", ());
         return Err(err.to_string());
     }
     
     let _ = client.disconnect().await;
+    let mut ps = state.pairing_state.lock().await;
+    *ps = crate::pairing::PairingState::Failed {
+        reason: "Pairing failed".to_string(),
+    };
+    let _ = app.emit("pairing-state-changed", ());
     Err("Pairing failed".to_string())
 }
 
@@ -779,6 +949,7 @@ pub fn run() {
                 settings: Arc::new(Mutex::new(settings_store)),
                 api_proxy: Arc::new(Mutex::new(ApiProxyHandle::new())),
                 orchestrator: Arc::new(crate::orchestrator::Orchestrator::new(data_dir.clone())),
+                active_tunnel_url: Arc::new(Mutex::new(None)),
             };
             app.manage(state);
 
@@ -878,6 +1049,8 @@ pub fn run() {
             get_active_sessions,
             kill_session,
             kill_all_sessions,
+            get_active_tunnel_url,
+            start_quick_tunnel,
             // Client
             connect_to_host,
             connect_to_url,

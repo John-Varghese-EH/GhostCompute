@@ -1,28 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Play, 
-  Square, 
-  RefreshCw, 
-  Terminal, 
-  ExternalLink, 
-  Cpu, 
-  Loader2,
-  Search,
-  Globe,
-  MessageSquare,
-  Brain,
-  Image,
-  Mic,
-  Zap,
-  Boxes,
-  Puzzle,
-  Share2,
-  Network,
-  Code2,
-  FileCode,
-  Database,
-  Layers
-} from 'lucide-react';
+import { Icon } from './common/Icon';
 import {
   listRecipes,
   getServiceStates,
@@ -41,39 +18,39 @@ import { IconBadge } from './common/IconBadge';
 const getToolIconMeta = (recipeId: string, _category?: ToolCategory) => {
   switch (recipeId) {
     case 'ollama':
-      return { icon: <Cpu size={20} />, variant: 'accent' as const };
+      return { icon: <Icon name="memory" size={20} />, variant: 'accent' as const };
     case 'lm-studio':
-      return { icon: <Layers size={20} />, variant: 'accent' as const };
+      return { icon: <Icon name="layers" size={20} />, variant: 'accent' as const };
     case 'jan':
-      return { icon: <MessageSquare size={20} />, variant: 'accent' as const };
+      return { icon: <Icon name="chat" size={20} />, variant: 'accent' as const };
     case 'open-webui':
-      return { icon: <Globe size={20} />, variant: 'blue' as const };
+      return { icon: <Icon name="public" size={20} />, variant: 'blue' as const };
     case 'anythingllm':
-      return { icon: <Brain size={20} />, variant: 'blue' as const };
+      return { icon: <Icon name="psychology" size={20} />, variant: 'blue' as const };
     case 'comfyui':
-      return { icon: <Image size={20} />, variant: 'rose' as const };
+      return { icon: <Icon name="image" size={20} />, variant: 'rose' as const };
     case 'whisper':
-      return { icon: <Mic size={20} />, variant: 'rose' as const };
+      return { icon: <Icon name="mic" size={20} />, variant: 'rose' as const };
     case 'n8n':
-      return { icon: <Zap size={20} />, variant: 'amber' as const };
+      return { icon: <Icon name="bolt" size={20} />, variant: 'amber' as const };
     case 'dify':
-      return { icon: <Boxes size={20} />, variant: 'amber' as const };
+      return { icon: <Icon name="widgets" size={20} />, variant: 'amber' as const };
     case 'activepieces':
-      return { icon: <Puzzle size={20} />, variant: 'amber' as const };
+      return { icon: <Icon name="extension" size={20} />, variant: 'amber' as const };
     case 'flowise':
-      return { icon: <Share2 size={20} />, variant: 'amber' as const };
+      return { icon: <Icon name="share" size={20} />, variant: 'amber' as const };
     case 'langflow':
-      return { icon: <Network size={20} />, variant: 'amber' as const };
+      return { icon: <Icon name="hub" size={20} />, variant: 'amber' as const };
     case 'open-interpreter':
-      return { icon: <Terminal size={20} />, variant: 'amber' as const };
+      return { icon: <Icon name="terminal" size={20} />, variant: 'amber' as const };
     case 'tabby':
-      return { icon: <Code2 size={20} />, variant: 'emerald' as const };
+      return { icon: <Icon name="code" size={20} />, variant: 'emerald' as const };
     case 'twinny':
-      return { icon: <FileCode size={20} />, variant: 'emerald' as const };
+      return { icon: <Icon name="description" size={20} />, variant: 'emerald' as const };
     case 'qdrant':
-      return { icon: <Database size={20} />, variant: 'emerald' as const };
+      return { icon: <Icon name="database" size={20} />, variant: 'emerald' as const };
     default:
-      return { icon: <Cpu size={20} />, variant: 'neutral' as const };
+      return { icon: <Icon name="memory" size={20} />, variant: 'neutral' as const };
   }
 };
 
@@ -189,7 +166,7 @@ export const AppStoreCatalog: React.FC = () => {
         {/* Search & Actions */}
         <div className="flex items-center gap-2 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--gc-text-muted)]" />
+            <Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--gc-text-muted)]" />
             <input
               type="text"
               placeholder="Search tools & models..."
@@ -204,7 +181,7 @@ export const AppStoreCatalog: React.FC = () => {
             onClick={loadData} 
             className="flex items-center gap-1.5 text-xs text-[var(--gc-text-muted)] hover:text-[var(--gc-text)] shrink-0"
           >
-            <RefreshCw size={13} />
+            <Icon name="refresh" size={13} />
             <span>Refresh</span>
           </Button>
         </div>
@@ -301,12 +278,12 @@ export const AppStoreCatalog: React.FC = () => {
                     )}
                     {recipe.gpu.required && (
                       <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center gap-1 font-semibold">
-                        <Cpu size={11} /> {recipe.gpu.recommended_vram_mb / 1024}GB VRAM
+                        <Icon name="memory" size={11} /> {recipe.gpu.recommended_vram_mb / 1024}GB VRAM
                       </span>
                     )}
                     {recipe.web_ui && (
                       <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-semibold flex items-center gap-1">
-                        <Globe size={11} /> Web UI
+                        <Icon name="public" size={11} /> Web UI
                       </span>
                     )}
                   </div>
@@ -320,7 +297,7 @@ export const AppStoreCatalog: React.FC = () => {
                       title="View Container / Engine Logs"
                       className="p-1.5 rounded-lg hover:bg-[var(--gc-border)] text-[var(--gc-text-muted)] hover:text-[var(--gc-text)] transition-colors cursor-pointer"
                     >
-                      <Terminal size={14} />
+                      <Icon name="terminal" size={14} />
                     </button>
                     {recipe.web_ui && isRunning && primaryPort && (
                       <a
@@ -330,7 +307,7 @@ export const AppStoreCatalog: React.FC = () => {
                         title="Open Web Dashboard"
                         className="p-1.5 rounded-lg hover:bg-[var(--gc-border)] text-[var(--gc-text-muted)] hover:text-accent transition-colors cursor-pointer"
                       >
-                        <ExternalLink size={14} />
+                        <Icon name="open_in_new" size={14} />
                       </a>
                     )}
                   </div>
@@ -344,7 +321,7 @@ export const AppStoreCatalog: React.FC = () => {
                         disabled={isLoading}
                         className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-lg active:scale-[0.98]"
                       >
-                        {isLoading ? <Loader2 size={12} className="animate-spin" /> : <Square size={12} />}
+                        {isLoading ? <Icon name="refresh" size={12} className="animate-spin" /> : <Icon name="stop" size={12} />}
                         Stop
                       </Button>
                     ) : (
@@ -355,7 +332,7 @@ export const AppStoreCatalog: React.FC = () => {
                         disabled={isLoading}
                         className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-lg active:scale-[0.98] bg-violet-600 hover:bg-violet-500 shadow-sm"
                       >
-                        {isLoading ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                        {isLoading ? <Icon name="refresh" size={12} className="animate-spin" /> : <Icon name="play_arrow" size={12} />}
                         Launch
                       </Button>
                     )}
@@ -389,7 +366,7 @@ export const AppStoreCatalog: React.FC = () => {
             <div className="double-bezel-inner h-full flex flex-col p-0 overflow-hidden bg-black">
               <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
                 <div className="flex items-center gap-2">
-                  <Terminal size={18} className="text-violet-400" />
+                  <Icon name="terminal" size={18} className="text-violet-400" />
                   <h3 className="font-semibold text-white text-sm">
                     Console Logs: <span className="text-violet-300 font-mono">{selectedLogs.name}</span>
                   </h3>

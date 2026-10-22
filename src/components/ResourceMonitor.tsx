@@ -1,15 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { 
-  LuCpu, 
-  LuHardDrive, 
-  LuServer, 
-  LuClock, 
-  LuActivity,
-  LuCircleAlert,
-  LuFlame,
-  LuSparkles
-} from 'react-icons/lu';
+import { Icon } from './common/Icon';
 import { SystemStats } from '../lib/tauri';
 
 export function ResourceMonitor() {
@@ -47,7 +38,7 @@ export function ResourceMonitor() {
       <div className="double-bezel">
         <div className="double-bezel-inner flex flex-col gap-sm">
           <div className="flex items-center gap-xs text-danger">
-            <LuCircleAlert size={18} />
+            <Icon name="error" size={18} />
             <h3 className="text-sm font-semibold tracking-tight">Host Telemetry Offline</h3>
           </div>
           <p className="text-muted text-xs">{error}</p>
@@ -60,7 +51,7 @@ export function ResourceMonitor() {
     return (
       <div className="double-bezel">
         <div className="double-bezel-inner flex flex-col items-center justify-center py-12 gap-sm">
-          <LuActivity size={24} className="text-accent spinner" />
+          <Icon name="vital_signs" size={24} className="text-accent spinner" />
           <div className="text-muted text-xs tracking-wide">Streaming real-time host telemetry...</div>
         </div>
       </div>
@@ -96,7 +87,7 @@ export function ResourceMonitor() {
         <div className="flex justify-between items-center pb-3 border-b border-[var(--gc-border)]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-accent shadow-sm">
-              <LuServer size={20} />
+              <Icon name="dns" size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -117,7 +108,7 @@ export function ResourceMonitor() {
             className="flex items-center gap-1.5 text-muted text-xs bg-[var(--gc-surface-sunken)] px-2.5 py-1 rounded-[var(--gc-squircle-sm)] border border-[var(--gc-border)] whitespace-nowrap shrink-0"
             style={{ borderRadius: 'var(--gc-squircle-sm)' }}
           >
-            <LuClock size={12} className="text-accent" />
+            <Icon name="schedule" size={12} className="text-accent" />
             <span className="text-mono font-medium text-[var(--gc-text)]">{formatUptime(stats.uptime_seconds)}</span>
           </div>
         </div>
@@ -127,7 +118,7 @@ export function ResourceMonitor() {
           <div className="p-3.5 rounded-xl bg-[var(--gc-surface-sunken)] border border-[var(--gc-border)] shadow-inner flex flex-col gap-3">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <LuSparkles size={15} className="text-accent animate-pulse" />
+                <Icon name="auto_awesome" size={15} className="text-accent animate-pulse" />
                 <span className="text-xs font-semibold text-[var(--gc-text)] tracking-tight">
                   {stats.gpu_name}
                 </span>
@@ -144,7 +135,7 @@ export function ResourceMonitor() {
                   }`}
                   style={{ borderRadius: 'var(--gc-squircle-sm)' }}
                 >
-                  <LuFlame size={12} />
+                  <Icon name="local_fire_department" size={12} />
                   <span>{gpuTemp}°C</span>
                 </div>
               )}
@@ -169,7 +160,7 @@ export function ResourceMonitor() {
         ) : (
           <div className="p-2.5 rounded-xl bg-[var(--gc-surface-sunken)] border border-[var(--gc-border)] flex items-center justify-between text-xs text-muted">
             <span className="flex items-center gap-2">
-              <LuCpu size={14} className="text-accent" />
+              <Icon name="memory" size={14} className="text-accent" />
               <span>GPU Accelerator</span>
             </span>
             <span className="text-[11px] font-mono text-[var(--gc-text-muted)]">CPU / Unified Mode</span>
@@ -183,7 +174,7 @@ export function ResourceMonitor() {
           <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-[var(--gc-surface-sunken)] border border-[var(--gc-border)]">
             <div className="flex justify-between items-center text-xs">
               <div className="flex items-center gap-1.5 text-[var(--gc-text)] font-medium">
-                <LuCpu size={14} className="text-accent" />
+                <Icon name="memory" size={14} className="text-accent" />
                 <span>CPU Core Load</span>
               </div>
               <span className="text-mono font-bold text-[var(--gc-text)] text-xs">{stats.cpu_usage_percent.toFixed(1)}%</span>
@@ -203,7 +194,7 @@ export function ResourceMonitor() {
           <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-[var(--gc-surface-sunken)] border border-[var(--gc-border)]">
             <div className="flex justify-between items-center text-xs">
               <div className="flex items-center gap-1.5 text-[var(--gc-text)] font-medium">
-                <LuHardDrive size={14} className="text-accent" />
+                <Icon name="hard_drive" size={14} className="text-accent" />
                 <span>RAM Usage</span>
               </div>
               <span className="text-mono font-bold text-[var(--gc-text)] text-xs">

@@ -107,19 +107,25 @@ impl MdnsHandle {
             port
         );
 
-        let service_info = ServiceInfo::new(
+        let ip_arg: &str = detected_ip.as_deref().unwrap_or("");
+
+        let mut service_info = ServiceInfo::new(
             SERVICE_TYPE,
             device_name,
             &local_host,
-            "",
+            ip_arg,
             port,
             Some(properties),
-        )?
-        .enable_addr_auto();
+        )?;
+        
+        // If no explicit IP was detected, fall back to auto-address detection
+        if ip_arg.is_empty() {
+            service_info = service_info.enable_addr_auto();
+        }
 
         self.service_fullname = Some(service_info.get_fullname().to_string());
         self.daemon.register(service_info)?;
-        log::info!("[mDNS] Successfully registered and broadcasting on LAN");
+        log::info!("[mDNS] Successfully registered and broadcasting on LAN with IP: {:?}", detected_ip);
 
         Ok(())
     }

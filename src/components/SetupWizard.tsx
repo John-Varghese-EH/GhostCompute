@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LuServer, LuLaptop, LuCheck, LuArrowRight, LuArrowLeft, LuDownload } from 'react-icons/lu';
+import { Icon } from './common/Icon';
 import { Button } from './common/Button';
 import { PairingPanel } from './PairingPanel';
 import { useOllama } from '../hooks/useOllama';
@@ -130,7 +130,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                   <div>
                     <div className="flex justify-between items-start mb-4">
                       <IconBadge 
-                        icon={<LuServer size={22} />} 
+                        icon={<Icon name="dns" size={22} />} 
                         variant={role === 'host' ? 'accent' : 'neutral'} 
                         size="lg" 
                         glow={role === 'host'} 
@@ -142,7 +142,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                           ? 'bg-violet-600 border-violet-500 shadow-sm' 
                           : 'border-white/20 bg-transparent'
                       }`}>
-                        {role === 'host' && <LuCheck size={14} className="text-white font-bold" />}
+                        {role === 'host' && <Icon name="check" size={14} className="text-white font-bold" />}
                       </div>
                     </div>
 
@@ -182,7 +182,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                   <div>
                     <div className="flex justify-between items-start mb-4">
                       <IconBadge 
-                        icon={<LuLaptop size={22} />} 
+                        icon={<Icon name="laptop_mac" size={22} />} 
                         variant={role === 'client' ? 'blue' : 'neutral'} 
                         size="lg" 
                         glow={role === 'client'} 
@@ -194,7 +194,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                           ? 'bg-violet-600 border-violet-500 shadow-sm' 
                           : 'border-white/20 bg-transparent'
                       }`}>
-                        {role === 'client' && <LuCheck size={14} className="text-white font-bold" />}
+                        {role === 'client' && <Icon name="check" size={14} className="text-white font-bold" />}
                       </div>
                     </div>
 
@@ -285,7 +285,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
                     }}
                     className="flex items-center gap-1.5 shrink-0 px-4"
                   >
-                    <LuDownload size={14} />
+                    <Icon name="download" size={16} />
                     <span>Pull</span>
                   </Button>
                 </div>
@@ -302,7 +302,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
             disabled={step === 1} 
             className="flex items-center gap-2 text-xs"
           >
-            <LuArrowLeft size={14} />
+            <Icon name="arrow_back" size={16} />
             <span>Back</span>
           </Button>
 
@@ -313,7 +313,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete }) => {
           >
             <span>{step === (role === 'host' ? 3 : 2) ? 'Finish Setup & Launch' : 'Continue'}</span>
             <span className="btn-icon-bubble group-hover:translate-x-0.5">
-              <LuArrowRight size={13} className="text-white" />
+              <Icon name="arrow_forward" size={15} className="text-white" />
             </span>
           </Button>
         </div>

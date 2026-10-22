@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, ReactNode } from 'react';
-import { LuX } from 'react-icons/lu';
+import { Icon } from './Icon';
 
 export interface ModalProps {
   open: boolean;
@@ -63,7 +63,7 @@ export const Modal: React.FC<ModalProps> = ({ open, onClose, title, children, fo
             }}
             title="Close"
           >
-            <LuX size={15} />
+            <Icon name="close" size={16} />
           </button>
         </div>
         <div style={{ padding: '4px 0' }}>{children}</div>

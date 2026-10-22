@@ -1,16 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  ShieldCheck, 
-  Key, 
-  Trash2, 
-  Plus, 
-  Copy, 
-  Check, 
-  Gauge, 
-  RefreshCw,
-  Laptop
-} from 'lucide-react';
+import { Icon } from './common/Icon';
 import { 
   getPairedDevices, 
   revokeDevice, 
@@ -107,7 +96,7 @@ export const UserManagementPanel: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-[var(--gc-text)] flex items-center gap-2">
-            <Users size={20} className="text-accent" />
+            <Icon name="group" size={20} className="text-accent" />
             <span>Multi-User & Access Control (RBAC)</span>
           </h2>
           <p className="text-sm text-[var(--gc-text-muted)] mt-1">
@@ -117,10 +106,10 @@ export const UserManagementPanel: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <Button size="sm" variant="ghost" onClick={loadPeers} className="flex items-center gap-1.5 text-[var(--gc-text)]">
-            <RefreshCw size={14} /> Refresh
+            <Icon name="refresh" size={14} /> Refresh
           </Button>
           <Button size="sm" variant="primary" onClick={handleGenerateLink} className="flex items-center gap-1.5">
-            <Plus size={14} /> Generate Client Token
+            <Icon name="add" size={14} /> Generate Client Token
           </Button>
         </div>
       </div>
@@ -130,7 +119,7 @@ export const UserManagementPanel: React.FC = () => {
         <div className="double-bezel">
           <div className="double-bezel-inner bg-[var(--gc-accent-muted)] border-[var(--gc-accent)] flex flex-col gap-2">
             <div className="text-[11px] font-semibold text-accent uppercase tracking-wider flex items-center gap-1.5">
-              <Key size={13} className="text-accent" />
+              <Icon name="vpn_key" size={13} className="text-accent" />
               <span>One-Click Client Invitation Link (Encrypted Token + Tunnel):</span>
             </div>
             <div className="flex items-center gap-2">
@@ -149,7 +138,7 @@ export const UserManagementPanel: React.FC = () => {
                 }}
                 className="flex items-center gap-1.5 text-xs px-4 py-2"
               >
-                {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                {copiedLink ? <Icon name="check" size={14} className="text-emerald-400" /> : <Icon name="content_copy" size={14} />}
                 <span>{copiedLink ? 'Copied' : 'Copy Link'}</span>
               </Button>
             </div>
@@ -165,7 +154,7 @@ export const UserManagementPanel: React.FC = () => {
         <div className="double-bezel-inner p-0 overflow-hidden">
           {peers.length === 0 ? (
             <div className="p-16 text-center text-[var(--gc-text-muted)]">
-              <ShieldCheck size={36} className="mx-auto mb-3 opacity-40 text-accent" />
+              <Icon name="verified_user" size={36} className="mx-auto mb-3 opacity-40 text-accent" />
               <div className="text-sm font-semibold text-[var(--gc-text)]">No paired client devices connected</div>
               <div className="text-xs text-[var(--gc-text-muted)] mt-1">Generate a pairing link above to invite remote client laptops.</div>
             </div>
@@ -177,7 +166,7 @@ export const UserManagementPanel: React.FC = () => {
                 <div key={peer.peer_id} className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-[var(--gc-surface-elevated)] transition-colors">
                   <div className="flex items-center gap-3">
                     <IconBadge 
-                      icon={<Laptop size={18} />} 
+                      icon={<Icon name="laptop_mac" size={18} />} 
                       variant={peer.role === 'admin' ? 'rose' : peer.role === 'developer' ? 'accent' : 'neutral'} 
                       size="md" 
                     />
@@ -212,7 +201,7 @@ export const UserManagementPanel: React.FC = () => {
 
                     {/* Rate limit */}
                     <div className="flex items-center gap-1.5 bg-[var(--gc-surface-sunken)] px-2.5 py-1 rounded-lg border border-[var(--gc-border)]">
-                      <Gauge size={12} className="text-[var(--gc-text-muted)]" />
+                      <Icon name="speed" size={12} className="text-[var(--gc-text-muted)]" />
                       <span className="text-[11px] text-[var(--gc-text-muted)] font-mono">RPM:</span>
                       <input
                         type="number"
@@ -230,7 +219,7 @@ export const UserManagementPanel: React.FC = () => {
                       title={peer.api_token ? `Token: ${peer.api_token}` : 'Generate Bearer API Token'}
                       className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--gc-surface-elevated)] hover:bg-[var(--gc-border)] border border-[var(--gc-border)] text-xs text-[var(--gc-text)] font-mono transition-colors cursor-pointer"
                     >
-                      <Key size={12} className={peer.api_token ? 'text-amber-400' : 'text-[var(--gc-text-muted)]'} />
+                      <Icon name="vpn_key" size={12} className={peer.api_token ? 'text-amber-400' : 'text-[var(--gc-text-muted)]'} />
                       <span>{isCopied ? 'Copied!' : peer.api_token ? 'Copy Token' : 'New Token'}</span>
                     </button>
 
@@ -246,7 +235,7 @@ export const UserManagementPanel: React.FC = () => {
                         title="Remove device"
                         className="p-1.5 rounded-lg hover:bg-red-500/20 text-[var(--gc-text-muted)] hover:text-red-400 transition-colors cursor-pointer"
                       >
-                        <Trash2 size={14} />
+                        <Icon name="delete" size={14} />
                       </button>
                     </div>
                   </div>

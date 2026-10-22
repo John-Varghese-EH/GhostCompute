@@ -1,30 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  LuLayers, 
-  LuSmartphone, 
-  LuCpu, 
-  LuBox, 
-  LuSettings, 
-  LuPlugZap, 
-  LuCopy, 
-  LuCheck, 
-  LuWifi, 
-  LuGlobe,
-  LuDownload,
-  LuInfo,
-  LuStore,
-  LuShieldCheck,
-  LuSlidersHorizontal,
-  LuEye,
-  LuEyeOff,
-  LuRotateCcw,
-  LuSave,
-  LuExternalLink
-} from 'react-icons/lu';
+import { Icon } from './common/Icon';
 import { useHosting } from '../hooks/useHosting';
 import { useOllama } from '../hooks/useOllama';
 import { useSettings } from '../hooks/useSettings';
-import { getPairedDevices, revokeDevice, TrustedPeer, generatePairingLink, getLocalIp, AppSettings } from '../lib/tauri';
+import { 
+  getPairedDevices, 
+  revokeDevice, 
+  TrustedPeer, 
+  generatePairingLink, 
+  getLocalIp, 
+  AppSettings,
+  getActiveTunnelUrl,
+  startQuickTunnel,
+  safeListen
+} from '../lib/tauri';
 import { Button } from './common/Button';
 import { Badge } from './common/Badge';
 import { StatusDot } from './common/StatusDot';
@@ -49,6 +38,8 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
   // Local form state for Settings to prevent keystroke save jitter
   const [formSettings, setFormSettings] = useState<AppSettings | null>(null);
   const [tunnelMode, setTunnelMode] = useState<'quick' | 'named'>('quick');
+  const [liveTunnelUrl, setLiveTunnelUrl] = useState<string | null>(null);
+  const [isStartingTunnel, setIsStartingTunnel] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showGroqKey, setShowGroqKey] = useState(false);
@@ -66,6 +57,13 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
     return 'bash';
   });
 
+  const updateFormField = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+    setFormSettings(prev => ({
+      ...(prev || settings),
+      [key]: value
+    }));
+  };
+
   // Sync formSettings when settings load or update
   useEffect(() => {
     if (settings && settings.host_port !== undefined) {
@@ -75,6 +73,48 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
       }
     }
   }, [settings]);
+
+  // Listen for Cloudflare Quick Tunnel events (automatically clear when down)
+  useEffect(() => {
+    let unlistenReady: (() => void) | undefined;
+    let unlistenCleared: (() => void) | undefined;
+
+    getActiveTunnelUrl().then(url => {
+      setLiveTunnelUrl(url);
+      if (url) {
+        updateFormField('cloudflare_tunnel_url', url);
+      } else {
+        updateFormField('cloudflare_tunnel_url', null);
+      }
+    }).catch(console.error);
+
+    safeListen<string>('tunnel-url-ready', (event) => {
+      const url = event.payload?.trim() || null;
+      setLiveTunnelUrl(url);
+      updateFormField('cloudflare_tunnel_url', url);
+    }).then(fn => { unlistenReady = fn; }).catch(console.error);
+
+    safeListen('tunnel-url-cleared', () => {
+      setLiveTunnelUrl(null);
+      updateFormField('cloudflare_tunnel_url', null);
+    }).then(fn => { unlistenCleared = fn; }).catch(console.error);
+
+    return () => {
+      if (unlistenReady) unlistenReady();
+      if (unlistenCleared) unlistenCleared();
+    };
+  }, []);
+
+  const handleStartQuickTunnel = async () => {
+    setIsStartingTunnel(true);
+    try {
+      await startQuickTunnel();
+    } catch (err) {
+      console.error('Failed to start quick tunnel:', err);
+    } finally {
+      setIsStartingTunnel(false);
+    }
+  };
 
   const isSettingsDirty = Boolean(formSettings && settings && (
     formSettings.host_port !== settings.host_port ||
@@ -169,13 +209,13 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
           <div className="flex flex-wrap items-center gap-1.5" style={{ marginTop: '10px' }}>
             <Badge variant="info">
               <span className="flex items-center gap-xs">
-                <LuWifi size={11} /> LAN Ready
+                <Icon name="wifi" size={11} /> LAN Ready
               </span>
             </Badge>
             {settings.cloudflare_token && (
               <Badge variant="success">
                 <span className="flex items-center gap-xs">
-                  <LuGlobe size={11} /> Tunnel
+                  <Icon name="public" size={11} /> Tunnel
                 </span>
               </Badge>
             )}
@@ -187,37 +227,37 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
             { 
               id: 'sessions', 
               label: 'Sessions', 
-              icon: <LuLayers size={16} />
+              icon: <Icon name="layers" size={16} />
             },
             {
               id: 'catalog',
               label: 'App Store (16 Tools)',
-              icon: <LuStore size={16} />
+              icon: <Icon name="storefront" size={16} />
             },
             {
               id: 'users',
               label: 'Access & RBAC',
-              icon: <LuShieldCheck size={16} />
+              icon: <Icon name="verified_user" size={16} />
             },
             { 
               id: 'devices', 
               label: 'Paired Devices', 
-              icon: <LuSmartphone size={16} />
+              icon: <Icon name="devices" size={16} />
             },
             { 
               id: 'model', 
               label: 'Model Engine', 
-              icon: <LuCpu size={16} />
+              icon: <Icon name="memory" size={16} />
             },
             {
               id: 'integrations',
               label: 'Integrations',
-              icon: <LuBox size={16} />
+              icon: <Icon name="widgets" size={16} />
             },
             { 
               id: 'settings', 
               label: 'Settings', 
-              icon: <LuSettings size={16} />
+              icon: <Icon name="settings" size={16} />
             }
           ].map(nav => (
             <button
@@ -292,7 +332,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                     background: 'var(--gc-accent-muted)'
                   }}
                 >
-                  <LuWifi size={20} />
+                  <Icon name="wifi" size={20} />
                 </div>
                 <div>
                   <div className="flex items-center gap-sm">
@@ -312,7 +352,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                   onClick={copyLanAddress}
                   className="flex items-center gap-xs"
                 >
-                  {copiedLan ? <LuCheck size={14} className="text-success" /> : <LuCopy size={14} />}
+                  {copiedLan ? <Icon name="check" size={14} className="text-success" /> : <Icon name="content_copy" size={14} />}
                   <span>{copiedLan ? 'Copied' : 'Copy LAN IP'}</span>
                 </Button>
               </div>
@@ -325,7 +365,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                 className="card glass-panel cursor-pointer hover:border-violet-500/40 transition-all flex items-center gap-3 p-4 group"
               >
                 <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-accent group-hover:scale-105 transition-transform">
-                  <LuStore size={20} />
+                  <Icon name="storefront" size={20} />
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-[var(--gc-text)]">App Store Catalog</div>
@@ -338,7 +378,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                 className="card glass-panel cursor-pointer hover:border-emerald-500/40 transition-all flex items-center gap-3 p-4 group"
               >
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
-                  <LuShieldCheck size={20} />
+                  <Icon name="verified_user" size={20} />
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-[var(--gc-text)]">Invite Client Laptop</div>
@@ -351,7 +391,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                 className="card glass-panel cursor-pointer hover:border-blue-500/40 transition-all flex items-center gap-3 p-4 group"
               >
                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">
-                  <LuBox size={20} />
+                  <Icon name="widgets" size={20} />
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-[var(--gc-text)]">OpenAI Gateway</div>
@@ -367,7 +407,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
 
             {sessions.length === 0 ? (
               <EmptyState 
-                icon={<LuPlugZap size={24} />} 
+                icon={<Icon name="bolt" size={24} />} 
                 title="No active client sessions" 
                 description="Waiting for client laptops to connect. Share your LAN IP or Quick Tunnel address." 
               />
@@ -427,7 +467,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
 
             {devices.length === 0 ? (
               <EmptyState 
-                icon={<LuSmartphone size={24} />} 
+                icon={<Icon name="devices" size={24} />} 
                 title="No paired devices" 
                 description="You haven't paired with any clients yet." 
               />
@@ -466,7 +506,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
             {ollamaStatus !== 'Running' && (
               <div className="card glass-panel flex flex-col gap-sm" style={{ border: '1px solid rgba(255, 69, 58, 0.3)', background: 'rgba(255, 69, 58, 0.05)' }}>
                 <div className="flex items-center gap-xs text-danger" style={{ fontWeight: 600, fontSize: '14px' }}>
-                  <LuInfo size={16} />
+                  <Icon name="info" size={16} />
                   <span>Ollama is not running on this machine</span>
                 </div>
                 <p className="text-muted" style={{ fontSize: '13px', lineHeight: 1.5 }}>
@@ -486,7 +526,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                     }}
                     className="flex items-center gap-xs"
                   >
-                    {savedFeedback === 'serve_cmd' ? <LuCheck size={12} className="text-success" /> : <LuCopy size={12} />}
+                    {savedFeedback === 'serve_cmd' ? <Icon name="check" size={12} className="text-success" /> : <Icon name="content_copy" size={12} />}
                     <span>{savedFeedback === 'serve_cmd' ? 'Copied' : 'Copy'}</span>
                   </Button>
                 </div>
@@ -498,7 +538,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
               {models.length === 0 ? (
                 <div className="flex flex-col gap-md">
                   <EmptyState 
-                    icon={<LuCpu size={24} />} 
+                    icon={<Icon name="memory" size={24} />} 
                     title="No models installed" 
                     description="No LLM models found in your local Ollama instance." 
                   />
@@ -529,7 +569,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                             <div className="text-muted" style={{ fontSize: '11px' }}>{rec.desc}</div>
                           </div>
                           <Button size="sm" variant="ghost" onClick={() => pullModel(rec.name)} className="flex items-center gap-xs">
-                            <LuDownload size={12} />
+                            <Icon name="download" size={12} />
                             <span>Pull</span>
                           </Button>
                         </div>
@@ -569,7 +609,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                   }}
                   className="flex items-center gap-xs"
                 >
-                  <LuDownload size={14} />
+                  <Icon name="download" size={14} />
                   <span>Pull</span>
                 </Button>
               </div>
@@ -614,7 +654,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                       disabled={isSavingSettings}
                       className="flex items-center gap-xs text-muted hover:text-white"
                     >
-                      <LuRotateCcw size={13} />
+                      <Icon name="restart_alt" size={13} />
                       <span>Discard Changes</span>
                     </Button>
                   )}
@@ -635,12 +675,12 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                       </>
                     ) : savedFeedback === 'settings_all' ? (
                       <>
-                        <LuCheck size={14} className="text-success" />
+                        <Icon name="check" size={14} className="text-success" />
                         <span>Configuration Saved</span>
                       </>
                     ) : (
                       <>
-                        <LuSave size={14} />
+                        <Icon name="save" size={14} />
                         <span>{isSettingsDirty ? 'Save Changes' : 'Saved'}</span>
                       </>
                     )}
@@ -653,7 +693,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                 <div className="flex flex-wrap justify-between items-center gap-3 pb-3 border-b border-[var(--gc-border)]">
                   <div className="flex items-center gap-sm">
                     <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-accent shrink-0">
-                      <LuSlidersHorizontal size={16} />
+                      <Icon name="tune" size={16} />
                     </div>
                     <div>
                       <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Host Daemon & Local Network</h3>
@@ -765,7 +805,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                 <div className="flex flex-wrap justify-between items-center gap-sm pb-3 border-b border-[var(--gc-border)]">
                   <div className="flex items-center gap-sm">
                     <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                      <LuGlobe size={16} />
+                      <Icon name="public" size={16} />
                     </div>
                     <div>
                       <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Cloudflare Zero-Trust Tunneling</h3>
@@ -844,21 +884,52 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                         }}
                         className="flex items-center gap-xs shrink-0"
                       >
-                        {savedFeedback === 'cmd_copy' ? <LuCheck size={12} className="text-success" /> : <LuCopy size={12} />}
+                        {savedFeedback === 'cmd_copy' ? <Icon name="check" size={12} className="text-success" /> : <Icon name="content_copy" size={12} />}
                         <span>{savedFeedback === 'cmd_copy' ? 'Copied' : 'Copy'}</span>
                       </Button>
                     </div>
 
                     {/* URL Input */}
                     <div className="flex flex-col gap-xs">
-                      <label style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }} className="text-muted">
-                        Active Quick Tunnel URL
-                      </label>
-                      <div className="flex gap-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <label style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }} className="text-muted">
+                            Active Quick Tunnel URL
+                          </label>
+                          {liveTunnelUrl ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                              Offline
+                            </span>
+                          )}
+                        </div>
+
+                        <Button
+                          size="sm"
+                          variant={liveTunnelUrl ? "ghost" : "primary"}
+                          onClick={handleStartQuickTunnel}
+                          disabled={isStartingTunnel}
+                          className="flex items-center gap-1 text-[11px] px-2.5 py-1"
+                        >
+                          <Icon 
+                            name={isStartingTunnel ? "refresh" : "bolt"} 
+                            size={12} 
+                            className={isStartingTunnel ? "animate-spin text-accent" : liveTunnelUrl ? "text-accent" : "text-white"} 
+                          />
+                          <span>{isStartingTunnel ? "Starting..." : (liveTunnelUrl ? "Restart Tunnel" : "Start New Quick Tunnel")}</span>
+                        </Button>
+                      </div>
+
+                      <div className="flex gap-sm mt-1">
                         <input 
                           type="text" 
                           className="input flex-1" 
-                          placeholder="https://whispering-alpha-sample.trycloudflare.com" 
+                          placeholder={liveTunnelUrl ? liveTunnelUrl : "No active tunnel. Click 'Start New Quick Tunnel' above to launch."} 
                           value={cur.cloudflare_tunnel_url || ''}
                           onChange={(e) => updateField('cloudflare_tunnel_url', e.target.value || null)}
                         />
@@ -870,13 +941,15 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                             className="flex items-center gap-xs"
                             title="Open URL in browser"
                           >
-                            <LuExternalLink size={13} />
+                            <Icon name="open_in_new" size={13} />
                             <span>Visit</span>
                           </Button>
                         )}
                       </div>
                       <span className="text-muted text-[11px] mt-0.5">
-                        Paste the trycloudflare.com URL generated by your terminal command above
+                        {liveTunnelUrl 
+                          ? "Tunnel is live and broadcasting via Cloudflare edge. Automatically clears if disconnected." 
+                          : "Tunnel is currently offline. Click 'Start New Quick Tunnel' to generate an ephemeral endpoint."}
                       </span>
                     </div>
                   </div>
@@ -907,7 +980,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                             onClick={() => setShowToken(!showToken)}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
                           >
-                            {showToken ? <LuEyeOff size={14} /> : <LuEye size={14} />}
+                            {showToken ? <Icon name="visibility_off" size={14} /> : <Icon name="visibility" size={14} />}
                           </button>
                         </div>
                       </div>
@@ -924,7 +997,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                 <div className="flex flex-wrap justify-between items-center gap-3 pb-3 border-b border-[var(--gc-border)]">
                   <div className="flex items-center gap-sm">
                     <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                      <LuCpu size={16} />
+                      <Icon name="memory" size={16} />
                     </div>
                     <div>
                       <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Resource Guardrails & Concurrency</h3>
@@ -990,7 +1063,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                 <div className="flex flex-wrap justify-between items-center gap-3 pb-3 border-b border-[var(--gc-border)]">
                   <div className="flex items-center gap-sm">
                     <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-                      <LuPlugZap size={16} />
+                      <Icon name="bolt" size={16} />
                     </div>
                     <div>
                       <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Cloud AI Gateways</h3>
@@ -1022,7 +1095,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                         onClick={() => setShowGeminiKey(!showGeminiKey)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
                       >
-                        {showGeminiKey ? <LuEyeOff size={14} /> : <LuEye size={14} />}
+                        {showGeminiKey ? <Icon name="visibility_off" size={14} /> : <Icon name="visibility" size={14} />}
                       </button>
                     </div>
                     <span className="text-muted text-[11px] mt-0.5">Access gemini-2.5-flash and gemini-1.5-pro models</span>
@@ -1045,7 +1118,7 @@ export const HostConsole: React.FC<HostConsoleProps> = ({ onResetRole }) => {
                         onClick={() => setShowGroqKey(!showGroqKey)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
                       >
-                        {showGroqKey ? <LuEyeOff size={14} /> : <LuEye size={14} />}
+                        {showGroqKey ? <Icon name="visibility_off" size={14} /> : <Icon name="visibility" size={14} />}
                       </button>
                     </div>
                     <span className="text-muted text-[11px] mt-0.5">Ultra-low-latency LPU cloud inference endpoint</span>

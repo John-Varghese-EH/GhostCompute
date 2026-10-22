@@ -2,7 +2,7 @@
 
 Since GhostCompute functions as a transparent Layer 7 HTTP multiplexer, any custom script, curl command, or application that can speak HTTP can communicate with your remote host. 
 
-GhostCompute does not alter the requests—it only encapsulates them. This means you have 100% API compatibility with the underlying server (e.g., Ollama).
+GhostCompute does not alter the requests - it only encapsulates them. This means you have 100% API compatibility with the underlying server (e.g., Ollama).
 
 ## Basic cURL Examples
 

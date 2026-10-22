@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LuChevronDown, LuCheck } from 'react-icons/lu';
+import { Icon } from './Icon';
 
 export interface SelectOption {
   value: string;
@@ -72,8 +72,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         <span className={`truncate ${!selectedOption && placeholder ? 'text-[var(--gc-text-muted)]' : ''}`}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <LuChevronDown
-          size={14}
+        <Icon
+          name="expand_more"
+          size={18}
           className={`ml-2 text-[var(--gc-text-muted)] shrink-0 transition-transform duration-200 ${
             isOpen ? 'rotate-180 text-[var(--gc-accent)]' : ''
           }`}
@@ -127,7 +128,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                     )}
                   </div>
                   {isSelected && (
-                    <LuCheck size={14} className="text-[var(--gc-accent)] shrink-0" />
+                    <Icon name="check" size={16} className="text-[var(--gc-accent)] shrink-0" />
                   )}
                 </button>
               );

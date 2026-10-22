@@ -1,5 +1,5 @@
 import React from 'react';
-import { LuSun, LuMoon } from 'react-icons/lu';
+import { Icon } from './Icon';
 import { useTheme } from '../../hooks/useTheme';
 
 interface ThemeToggleProps {
@@ -34,13 +34,15 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', size =
     >
       <span className="sr-only">Toggle theme</span>
       {isDark ? (
-        <LuSun 
-          size={isSmall ? 13 : 15} 
+        <Icon 
+          name="light_mode"
+          size={isSmall ? 15 : 18} 
           className="text-amber-400 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] rotate-0 hover:rotate-90" 
         />
       ) : (
-        <LuMoon 
-          size={isSmall ? 13 : 15} 
+        <Icon 
+          name="dark_mode"
+          size={isSmall ? 15 : 18} 
           className="text-violet-600 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] -rotate-12 hover:rotate-0" 
         />
       )}

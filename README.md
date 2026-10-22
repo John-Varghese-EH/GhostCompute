@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="public/logo.svg" alt="GhostCompute Logo" width="180" height="180" />
+  <img src="public/logo.svg" alt="GhostCompute Logo" width="160" height="160" />
   
-  # GhostCompute 👻
+  # GhostCompute
   
   **Turn any High-End PC into a Private, Zero-Trust AI & Automation Cloud Server**
 
@@ -9,34 +9,27 @@
   [![Built with Tauri v2](https://img.shields.io/badge/Built_with-Tauri_v2-24c8db.svg)](https://tauri.app/)
   [![Frontend React 19](https://img.shields.io/badge/Frontend-React_19_+_Tailwind_v4-61dafb.svg)](https://react.dev/)
   [![Backend Rust](https://img.shields.io/badge/Backend-Rust_Async-dea584.svg)](https://www.rust-lang.org/)
-  [![Zero Trust](https://img.shields.io/badge/Tunnel-Cloudflare_+_Noise_XX-f38020.svg)](https://www.cloudflare.com/)
+  [![Security Noise Protocol](https://img.shields.io/badge/Tunnel-Cloudflare_+_Noise_XX-f38020.svg)](https://www.cloudflare.com/)
 
-  *Enterprise-Grade, Open-Source Unified Desktop & Daemon Application*
+  *Enterprise-Grade Open-Source Desktop and Daemon Architecture*
 </div>
 
 ---
 
-## 🌟 Overview
+## Executive Summary
 
-**GhostCompute 👻** allows multiple lightweight client laptops (e.g. business MacBooks, thin clients) to seamlessly harness the heavy GPU compute (NVIDIA CUDA, AMD ROCm, Apple Metal) of a remote gaming PC or workstation from anywhere in the world with **true Zero-Config Setup** and **End-to-End Encryption**.
+GhostCompute transforms any high-end gaming PC or GPU workstation into a secure, self-hosted AI compute server accessible from any lightweight laptop (MacBook, thin client, or travel machine) across local networks (LAN) or over the internet (WAN).
 
-The same single binary acts in two user-selectable modes:
-- **Server Mode (Host):** Hardware auto-detection, one-click catalog orchestrator for 16 AI tools, multi-user role-based access control (RBAC), and persistent zero-trust tunneling via Cloudflare or Pinggy fallback.
-- **Client Mode (Consumer):** Automated proxy daemon (`127.0.0.1:11434`), 1-click agent auto-configurator (Claude Code, Cursor, Antigravity, Continue), and connection-aware desktop shortcuts for remote web apps.
+The platform operates as a single unified binary supporting two distinct runtime modes:
 
----
-
-## ⚡ The GhostCompute Hybrid Model
-
-GhostCompute employs an optimized **Hybrid Architecture**:
-1. **Bare-Metal Native Inference Engines (No Docker):**
-   - **Ollama, LM Studio, ComfyUI (Native), and cloudflared** run directly on the host OS for maximum tokens/second throughput and direct CUDA/VRAM access without Docker configuration overhead.
-2. **Selective Container Orchestration (Docker Compose):**
-   - Complex multi-tier web platforms (**Open WebUI, AnythingLLM, n8n, Dify, Activepieces, Flowise, Langflow, Open Interpreter, Tabby, Qdrant**) are managed via automated Docker Compose recipes with isolated data volumes and port bindings.
+- **Server Mode (Host):** Manages bare-metal GPU acceleration (NVIDIA CUDA, AMD ROCm, Apple Metal), runs an automated service catalog orchestrating 16 open-source AI applications, enforces multi-user role-based access control (RBAC), and provides zero-trust remote tunneling via Cloudflare or Pinggy.
+- **Client Mode (Consumer):** Runs a silent background proxy daemon on `127.0.0.1:11434`, automatically configures developer tools (Claude Code, Cursor, Antigravity, Continue), and provides live connection-aware shortcuts to remote host services.
 
 ---
 
-## 🏛️ Architecture & Topology
+## Architecture: Hybrid Runtime Model
+
+To maximize inference performance while maintaining clean system management, GhostCompute separates workloads into two execution layers:
 
 ```mermaid
 flowchart LR
@@ -54,20 +47,21 @@ flowchart LR
 
     subgraph HostPC["Server Host (Gaming PC / Workstation)"]
         direction TB
-        HostDaemon["GhostCompute Host Daemon\n(Reverse Proxy & Admission Gate)"]
-        RBAC["RBAC & API Token Store\n(Admin / Developer / Viewer)"]
+        HostDaemon["GhostCompute Host Daemon\n(Reverse Proxy and Admission Gate)"]
+        RBAC["RBAC and API Token Store\n(Admin / Developer / Viewer)"]
         
-        subgraph NativeEngines["Native Bare-Metal Engines"]
-            Ollama["Ollama Engine\n(Port 11434)"]
-            LMStudio["LM Studio\n(Port 1234)"]
-            Comfy["ComfyUI Native\n(Port 8188)"]
+        subgraph NativeEngines["Native Bare-Metal Tier (No Container Overhead)"]
+            Ollama["Ollama Engine (Port 11434)"]
+            LMStudio["LM Studio (Port 1234)"]
+            Jan["Jan.ai (Port 1337)"]
         end
 
-        subgraph DockerComposeApps["Docker Compose Tier"]
-            OpenWebUI["Open WebUI (3000)"]
-            N8N["n8n Automation (5678)"]
-            Dify["Dify App Platform"]
-            Qdrant["Qdrant Vector DB (6333)"]
+        subgraph DockerComposeApps["Containerized Application Tier (Docker Compose)"]
+            OpenWebUI["Open WebUI (Port 3000)"]
+            Comfy["ComfyUI (Port 8188)"]
+            N8N["n8n Automation (Port 5678)"]
+            Dify["Dify App Platform (Port 3100)"]
+            Qdrant["Qdrant Vector DB (Port 6333)"]
         end
 
         HostDaemon --> RBAC
@@ -80,77 +74,134 @@ flowchart LR
     CFTunnel <==> HostDaemon
 ```
 
----
+### 1. Bare-Metal Native Tier (Zero Docker Overhead)
+Inference engines (Ollama, LM Studio, Jan.ai) run natively on the host operating system. This guarantees maximum memory bandwidth, direct CUDA/ROCm hardware utilization, and zero container virtualization latency.
 
-## 📦 Supported 16-Tool Catalog (One-Click)
-
-| Category | Supported Tools | Mode | Highlights |
-|---|---|---|---|
-| **Local LLM Engines & Inference** | **Ollama**, **LM Studio**, **Jan.ai** | Bare-Metal Native | GPU passthrough, GGUF/Safetensors, `0.0.0.0` binding, OpenAI `/v1` endpoint |
-| **AI Chat, RAG & Knowledge** | **Open WebUI**, **AnythingLLM** | Docker Compose | Pre-linked to host Ollama, multi-user document search, vector RAG |
-| **Image, Audio & Media Gen** | **ComfyUI**, **Whisper ASR** | Native / GPU Container | Node-based Stable Diffusion workflows, GPU speech-to-text transcription |
-| **Workflow & AI Agents** | **n8n**, **Dify**, **Activepieces**, **Flowise**, **Langflow**, **Open Interpreter** | Docker Compose | 400+ automation nodes, visual drag-and-drop agent builders, safe sandbox execution |
-| **Coding Assistants & Vector DBs** | **Tabby**, **Twinny Backend**, **Qdrant** | Container / Native | VS Code / JetBrains autocompletion, high-performance vector similarity search |
+### 2. Containerized Application Tier (Docker Compose)
+Complex multi-service web platforms (Open WebUI, ComfyUI, AnythingLLM, n8n, Dify, Activepieces, Flowise, Langflow, Open Interpreter, Tabby, Qdrant) are managed via declarative Docker Compose recipes with isolated data volumes and managed port bindings.
 
 ---
 
-## 🔒 Security & Multi-Tenancy (RBAC)
+## One-Click Application Catalog (16 Tools)
 
-- **Noise Protocol XX_25519 Encryption:** End-to-end encrypted tunnels over WebSockets; Cloudflare only terminates the outer TLS transport layer without reading payloads.
-- **Short Authentication String (SAS):** Visual biometric-style verification string comparison prevents Man-in-the-Middle (MITM) attacks during pairing.
-- **Role-Based Access Control (RBAC):** Assign granular permissions (`Admin`, `Developer`, `Viewer`) to paired client devices.
-- **Per-Device Rate Limiting & API Tokens:** Cryptographic `gc_live_*` tokens with configurable requests-per-minute (RPM) limits.
+GhostCompute includes automated deployment definitions for 16 premier open-source AI tools:
+
+| Category | Supported Services | Deployment Mode | Primary Capability | Default Port |
+|:---|:---|:---|:---|:---|
+| **Local LLM Engines** | Ollama, LM Studio, Jan.ai | Native Binary | GGUF model execution, bare-metal GPU passthrough, OpenAI `/v1` compatibility | `11434`, `1234`, `1337` |
+| **AI Chat & Knowledge** | Open WebUI, AnythingLLM | Docker Container | Multi-user chat workspaces, retrieval-augmented generation (RAG), document ingestion | `3000`, `3001` |
+| **Media Generation** | ComfyUI, Whisper ASR | Docker / Native | Node-based Stable Diffusion workflows, GPU speech-to-text transcription | `8188`, `9000` |
+| **Workflow Automation** | n8n, Dify, Activepieces | Docker Compose | Low-code workflow automation, agent orchestration, 400+ API integrations | `5678`, `3100`, `8080` |
+| **Visual Agent Builders** | Flowise, Langflow, Open Interpreter | Docker Compose | Drag-and-drop LLM pipelines, autonomous computer execution | `3002`, `7860`, `8000` |
+| **Coding & Vector Stores** | Tabby, Twinny Backend, Qdrant | Docker / Native | Self-hosted code completion for IDEs, high-performance vector search engine | `8082`, `11434`, `6333` |
 
 ---
 
-## 🚀 Quickstart Guide
+## Security Model and Multi-Tenancy
 
-### 1. Requirements
-- **Host PC:** Windows 10/11 or Linux with NVIDIA CUDA, AMD ROCm, or Apple Metal.
-- **Client Laptop:** macOS, Linux, or Windows (no GPU required).
-- **Tooling:** Node.js 18+ and Rust toolchain installed.
+GhostCompute incorporates defense-in-depth security principles across all transport and application layers:
 
-### 2. Build & Launch
+- **End-to-End Encryption (Noise Protocol XX):** All peer sessions establish authenticated, end-to-end encrypted tunnels using the Noise XX pattern with Curve25519, ChaCha20-Poly1305, and BLAKE2s. Intermediate tunnel relays (such as Cloudflare or Pinggy) terminate only the outer transport TLS and cannot inspect inner application payloads.
+- **Short Authentication String (SAS) Verification:** During initial peer pairing, both devices generate an identical 6-character cryptographic verification string derived from the ephemeral session keys, preventing Man-in-the-Middle (MITM) attacks.
+- **Role-Based Access Control (RBAC):** Hosts assign granular permission tiers to connected clients:
+  - **Admin:** Full administrative control, service management, model pulling, and client pairing.
+  - **Developer:** Unlimited access to AI inference endpoints and development proxies.
+  - **Viewer:** Read-only access with restricted request quotas.
+- **Cryptographic API Tokens:** Hosts issue revocable `gc_live_*` bearer tokens with configurable requests-per-minute (RPM) rate limiting.
+- **VRAM and Compute Guard:** Real-time hardware telemetry monitors GPU temperature, VRAM allocation, and system memory, automatically throttling oversized context requests.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- **Host Device:** Windows 10/11 (64-bit) or Linux (x86_64) with dedicated GPU (NVIDIA CUDA recommended).
+- **Client Device:** macOS, Linux, or Windows (any lightweight hardware).
+- **Development Toolchain:** Node.js 18+ and Rust (stable) installed.
+
+### Build and Launch
+
 ```bash
 # Clone the repository
 git clone https://github.com/John-Varghese-EH/GhostCompute.git
 cd GhostCompute
 
-# Install dependencies
+# Install frontend dependencies
 npm install
 
 # Run application in development mode
 npm run tauri dev
 
-# Compile optimized production release
+# Compile release package
 npm run tauri build
 ```
 
-### 3. Usage Flow
-1. **On Host PC:** Select **Host Server Mode**, click **Start Server**, and copy the generated One-Click Pairing Link.
-2. **On Client Laptop:** Select **Client Consumer Mode**, paste the link, and click **Connect**.
-3. **Local AI Proxy:** Client services immediately have access to `http://127.0.0.1:11434`.
+---
+
+## Step-by-Step Connection Guide
+
+### Setting up the Host (Server)
+1. Launch GhostCompute and select **Server Mode (Host)**.
+2. In Step 2 (**LAN Broadcast & Client Pairing**), the application starts hosting on port `8384` and advertises availability across your local network via mDNS (`_ghostcompute._tcp.local.`).
+3. Note your displayed local IP address (e.g. `http://192.168.1.150:8384`) or click **Generate PIN** to create a temporary 6-digit code.
+
+### Connecting from a Client (Laptop)
+1. Launch GhostCompute on your laptop and select **Client Mode (Consumer)**.
+2. Under **Nearby Discovery**, your Host machine will appear automatically. Click **Connect**.
+   *(If on a separated subnet or remote network, switch to the Direct IP tab and enter the Host IP address or Cloudflare Tunnel URL).*
+3. Verify that the 6-character verification string matches the Host display, and click **Confirm Match**.
+4. Both devices are now paired. Your client proxy daemon runs on `http://127.0.0.1:11434`.
 
 ---
 
-## 🤖 Smart Coding Agent Auto-Configuration
+## Coding Agent Integration
 
-GhostCompute provides one-click environment setups for your favourite coding tools:
+GhostCompute routes developer requests directly to your remote GPU rig without changing local workflows.
 
 ### Claude Code CLI
 ```bash
 export OLLAMA_HOST=http://127.0.0.1:11434
-claude --provider ollama --model <model-tag>
+claude --provider ollama --model <model-name>
 ```
 
-### Cursor & Antigravity
+### Cursor & Antigravity IDE
+Configure local model settings as follows:
 - **Base URL:** `http://127.0.0.1:11434/v1`
 - **API Key:** `gc_live_authenticated` (or any string)
-- **Model:** Auto-discovered models from remote host
+- **Model Name:** Enter any model installed on your remote host (e.g. `qwen2.5-coder:7b`, `llama3.3:70b`, `deepseek-r1:14b`)
+
+### Continue.dev (VS Code & JetBrains)
+```json
+{
+  "models": [
+    {
+      "title": "GhostCompute Remote",
+      "provider": "ollama",
+      "model": "qwen2.5-coder:7b",
+      "apiBase": "http://127.0.0.1:11434"
+    }
+  ]
+}
+```
 
 ---
 
-## 👤 Author Credits
+## Port Allocation Reference
+
+| Port | Service | Protocol | Access Scope |
+|:---|:---|:---|:---|
+| `8384` | GhostCompute Host Daemon | TCP / WebSocket | LAN / Cloudflare Tunnel |
+| `11434` | Ollama Engine (Host) & Local Proxy (Client) | HTTP / REST | Host Internal & Client Localhost |
+| `1234` | LM Studio Inference Server | HTTP / REST | Host Localhost |
+| `3000` | Open WebUI Dashboard | HTTP | Host / Tunnel |
+| `5678` | n8n Automation Engine | HTTP | Host / Tunnel |
+| `6333` | Qdrant Vector Database | HTTP / REST | Host / Docker Internal |
+| `8188` | ComfyUI Workspace | HTTP / WebSocket | Host / Tunnel |
+
+---
+
+## Author Credits
 
 **John Varghese (J0X)**  
 *Principal Systems Architect & Lead Engineer*
@@ -161,5 +212,5 @@ claude --provider ollama --model <model-tag>
 ---
 
 <div align="center">
-  <sub>© 2026 John Varghese (J0X) • GhostCompute 👻 • Licensed under GPLv3</sub>
+  <sub>© 2026 John Varghese (J0X) • GhostCompute • Licensed under GPLv3</sub>
 </div>
